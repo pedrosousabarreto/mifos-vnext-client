@@ -16,7 +16,7 @@
 		<quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
 		<quarkus.platform.version>3.14.2</quarkus.platform.version>
 		<skipITs>true</skipITs>
-		<surefire-plugin.version>3.5.0</surefire-plugin.version>
+		<surefire-plugin.version>3.5.1</surefire-plugin.version>
 		<lombok.version>1.18.34</lombok.version>
 		<mapstruct.version>1.6.0</mapstruct.version>
 		<netty.version>4.1.114.Final</netty.version>
