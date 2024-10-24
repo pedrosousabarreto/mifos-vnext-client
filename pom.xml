@@ -45,7 +45,7 @@
 			<dependency>
 				<groupId>com.fasterxml.jackson.dataformat</groupId>
 				<artifactId>jackson-dataformat-protobuf</artifactId>
-				<version>2.12.3</version> <!-- Usa la versión adecuada -->
+				<version>2.18.0</version> <!-- Usa la versión adecuada -->
 			</dependency>
 
 
@@ -63,7 +63,7 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>
 			<artifactId>jackson-dataformat-protobuf</artifactId>
-			<version>2.12.3</version> <!-- Usa la versión adecuada -->
+			<version>2.18.0</version> <!-- Usa la versión adecuada -->
 		</dependency>
 
 		<dependency>
