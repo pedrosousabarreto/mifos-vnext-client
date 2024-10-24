@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package ="com.mx.fintecheando.grpc.proto.mojaloop";
+option java_outer_classname = "AlsProto";
+//package interop.grpcapi;
+//import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+import "mojaloop/common.proto";
+
+message LookupParticipantRequest{
+    string partyId = 1;
+    string partyIdType = 2;
+    optional string partySubIdOrType = 3;
+    optional string currencyCode = 4;
+}
+
+message LookupParticipantResponse{
+    string fspId = 1;
+}
+
+
+message LookupPartyRequest{
+    string partyId = 1;
+    string partyIdType = 2;
+    optional string partySubIdOrType = 3;
+    optional string currencyCode = 4;
+    optional string ownerFspId = 5;              // if known (will avoid the participant lookup)
+}
+
+message PartyIdInfo {
+    string partyId = 1;
+    string partyIdType = 2;
+    optional string partySubIdOrType = 3;
+    optional string currencyCode = 4;
+}
+
+message LookupPartySuccessResponse{
+    string partyId = 3;
+    string partyIdType = 4;
+    optional string partySubIdOrType = 5;
+    optional string currencyCode = 6;
+    optional string firstName = 7;
+    optional string middleName = 8;
+    optional string lastName = 9;
+    google.protobuf.Timestamp dateOfBirth = 10;
+
+
+}
+
+message LookupPartyResponse{
+    // header
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string requestId = 3;
+
+    oneof responseType{
+        ErrorResponse error = 4;
+        LookupPartySuccessResponse response = 5;
+    }
+}
+
+message ServerPartyInfoRequest{
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+    string partyIdType = 4;
+    optional string partySubIdOrType = 5;
+    optional string currencyCode = 6;
+
+    string pendingRequestId = 7;
+}
+
+message PartyAssociateRequest{
+    string fspId = 1;
+    string partyId = 2;
+    string partyType = 3;
+    optional string partySubtype = 4;
+    optional string currencyCode = 5;
+}
+

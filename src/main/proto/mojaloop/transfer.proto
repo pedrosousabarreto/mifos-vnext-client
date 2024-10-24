@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package ="com.mx.fintecheando.grpc.proto.mojaloop";
+option java_outer_classname = "TransferProto";
+import "mojaloop/common.proto";
+
+message Party {
+    string fspId = 1;
+    string idType = 2;
+    string idValue = 3;
+    optional string type = 4;
+}
+
+message Amount {
+    string currencyCode = 1;
+    string amount = 2;
+}
+
+message TransactionType {
+    string scenario = 1;
+    string subScenario = 2;
+    string initiator = 3;
+    string initiatorType = 4;
+}
+
+message TransferRequest {
+    string homeTransactionId = 1;
+    Party from = 2;
+    Party to = 3;
+    string amountType = 4;
+    Amount amount = 5;
+    TransactionType transactionType = 6;
+    string note = 7;
+}
+
+message TransferSuccessResponse{
+    string transferId = 2;
+}
+
+message TransferResponse{
+    // header
+    string homeTransactionId = 1;
+
+    oneof responseType{
+        ErrorResponse error = 4;
+        TransferSuccessResponse success = 5;
+    }
+}
+
+message ServerAcceptTransferRequest{
+    string transferId = 1;      // switch transfer ID
+    Party from = 2;
+    Party to = 3;
+    string amountType = 4;
+    Amount amount = 5;
+    TransactionType transactionType = 6;
+    string note = 7;
+
+    string requestId = 8;
+    string homeTransactionId = 9; // carried from initial request
+}
+
+message ServerAcceptTransferResponse{
+    // header
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string requestId = 3;
+    string transferId = 4;
+    string homeTransactionId = 5; // carried from initial request
+
+    optional ErrorResponse error = 6;
+}
+
+
+
+

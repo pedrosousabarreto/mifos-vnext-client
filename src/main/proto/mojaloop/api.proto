@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package ="com.mx.fintecheando.grpc.proto.mojaloop";
+option java_outer_classname = "ApiProto";
+//package interop.grpcapi;
+//import "google/protobuf/empty.proto";
+//import "google/protobuf/timestamp.proto";
+import "mojaloop/common.proto";
+import "mojaloop/als.proto";
+import "mojaloop/transfer.proto";
+
+service InteropGrpcApi {
+    // bidirectional stream start (must be called first
+    rpc StartStream(stream StreamFromClientMsg) returns (stream StreamToClientMsg);
+
+    // ALS
+    rpc LookupParticipant(LookupParticipantRequest) returns (LookupParticipantResponse);
+    rpc LookupParty(LookupPartyRequest) returns (LookupPartyResponse);
+    rpc PartyAssociate(PartyAssociateRequest) returns (Empty);
+
+    // transfers
+    rpc ExecuteTransfer(TransferRequest) returns (TransferResponse);
+}
+
+/*
+***************************************
+Client to Control Plane Messages
+****************************************
+*/
+
+message StreamFromClientMsg{
+    oneof requestType{
+        StreamClientInitialRequest initialRequest = 1;
+
+        LookupPartyResponse lookupPartyInfoResponse = 2;
+        // add a method to send the client stats to the backend
+
+        // transfer request/prepare responses
+        ServerAcceptTransferResponse acceptTransferResponse = 3;
+    }
+}
+// initial message all clients must send to register,
+// will be responded with GrpcInitialResponseToClient
+message StreamClientInitialRequest{
+    string fspId = 1;
+    optional string clientName = 2;
+}
+
+/*
+***************************************
+ControlPlane to Client Messages
+***************************************
+*/
+message StreamToClientMsg{
+    oneof responseType{
+        Empty initialResponse = 1;
+        // add a method to receive stats from the backend
+        ServerPartyInfoRequest partyInfoRequest = 2;
+
+        ServerAcceptTransferRequest acceptTransferRequest = 3;
+    }
+}
+message StreamServerInitialResponse{
+    string clientId = 1;
+}
+
