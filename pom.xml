@@ -40,7 +40,7 @@
 			<dependency>
 				<groupId>com.google.protobuf</groupId>
 				<artifactId>protobuf-java</artifactId>
-				<version>3.25.5</version> <!-- Usa la versión adecuada -->
+				<version>4.28.3</version> <!-- Usa la versión adecuada -->
 			</dependency>
 			<dependency>
 				<groupId>com.fasterxml.jackson.dataformat</groupId>
@@ -58,7 +58,7 @@
 		<dependency>
 			<groupId>com.google.protobuf</groupId>
 			<artifactId>protobuf-java</artifactId>
-			<version>3.25.5</version> <!-- Usa la versión adecuada -->
+			<version>4.28.3</version> <!-- Usa la versión adecuada -->
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>
