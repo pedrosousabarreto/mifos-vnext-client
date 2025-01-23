@@ -17,7 +17,10 @@
 # under the License.
 # 
 
-FROM azul/zulu-openjdk-alpine:17 as mifos
+FROM azul/zulu-openjdk-alpine:17 AS mifos
+
 RUN mkdir /opt/app
+
 COPY target/vnext.connector-0.0.1-SNAPSHOT.jar /opt/app
+
 CMD ["java", "-jar", "-Djava.security.egd=file:/dev/./urandom", "/opt/app/vnext.connector-0.0.1-SNAPSHOT.jar"]
