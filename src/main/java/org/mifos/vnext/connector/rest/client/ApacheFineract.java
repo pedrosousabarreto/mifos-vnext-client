@@ -107,8 +107,7 @@ public class ApacheFineract{
         depositRequest.setTransactionAmount(new BigDecimal(request.getAmount().getAmount()));
         depositRequest.setPaymentTypeId(1);
         depositRequest.setAccount(serverPartyInfoRequest.getEntityAccountNo());        
-        depositRequest.setAccountNumber(serverPartyInfoRequest.getEntityId());
-        //depositRequest.setAccountNumber(new Integer(request.getFrom().getIdValue()).intValue());
+        depositRequest.setAccountNumber(serverPartyInfoRequest.getEntityId());        
         depositRequest.setNote(request.getNote());
         depositRequest.setRoutingCode(request.getHomeTransactionId());
         depositRequest.setBankNumber(request.getFrom().getFspId());
