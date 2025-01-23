@@ -107,8 +107,8 @@ public class ApacheFineract{
         depositRequest.setTransactionAmount(new BigDecimal(request.getAmount().getAmount()));
         depositRequest.setPaymentTypeId(1);
         depositRequest.setAccount(serverPartyInfoRequest.getEntityAccountNo());        
-        //depositRequest.setAccountNumber(serverPartyInfoRequest.getEntityId());
-        depositRequest.setAccountNumber(new Integer(request.getFrom().getIdValue()).intValue());
+        depositRequest.setAccountNumber(serverPartyInfoRequest.getEntityId());
+        //depositRequest.setAccountNumber(new Integer(request.getFrom().getIdValue()).intValue());
         depositRequest.setNote(request.getNote());
         depositRequest.setRoutingCode(request.getHomeTransactionId());
         depositRequest.setBankNumber(request.getFrom().getFspId());
@@ -144,7 +144,7 @@ public class ApacheFineract{
 
         ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
         String json = ow.writeValueAsString(requestBody);
-        LOGGER.info("SENDING "+json);
+        
         HttpEntity<String> entity = new HttpEntity<>(json, headers);
         LOGGER.debug("Sending request to {} with body: {}", url, json);
 
