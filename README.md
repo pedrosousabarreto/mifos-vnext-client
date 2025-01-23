@@ -1,4 +1,4 @@
-# fineract-grpc
+# Mifos vNext Connector (gRPC version)
 
 This project uses Spring Boot 3.0
 
