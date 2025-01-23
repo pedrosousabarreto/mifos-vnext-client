@@ -143,7 +143,7 @@ public class ApacheFineract{
 
         ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
         String json = ow.writeValueAsString(requestBody);
-
+        LOGGER.info("SENDING "+json);
         HttpEntity<String> entity = new HttpEntity<>(json, headers);
         LOGGER.info("Sending request to {} with body: {}", url, json);
 
