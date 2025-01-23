@@ -1,9 +1,9 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package ="com.mx.fintecheando.grpc.proto.mojaloop";
+option java_package ="com.mx.fintecheando.grpc.proto.vnext";
 option java_outer_classname = "TransferProto";
-import "mojaloop/common.proto";
+import "vnext/common.proto";
 
 message Party {
     string fspId = 1;

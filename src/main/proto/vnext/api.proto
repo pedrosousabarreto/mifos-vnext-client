@@ -1,11 +1,11 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package ="com.mx.fintecheando.grpc.proto.mojaloop";
+option java_package ="com.mx.fintecheando.grpc.proto.vnext";
 option java_outer_classname = "ApiProto";
-import "mojaloop/common.proto";
-import "mojaloop/als.proto";
-import "mojaloop/transfer.proto";
+import "vnext/common.proto";
+import "vnext/als.proto";
+import "vnext/transfer.proto";
 
 service InteropGrpcApi {
     // bidirectional stream start (must be called first

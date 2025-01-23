@@ -18,20 +18,20 @@
  */
 package org.mifos.vnext.connector.config;
 
-import com.mx.fintecheando.grpc.proto.mojaloop.InteropGrpcApiGrpc;
-import com.mx.fintecheando.grpc.proto.mojaloop.LookupParticipantRequest;
-import com.mx.fintecheando.grpc.proto.mojaloop.LookupParticipantResponse;
-import com.mx.fintecheando.grpc.proto.mojaloop.LookupPartyRequest;
-import com.mx.fintecheando.grpc.proto.mojaloop.LookupPartyResponse;
-import com.mx.fintecheando.grpc.proto.mojaloop.LookupPartySuccessResponse;
-import com.mx.fintecheando.grpc.proto.mojaloop.ServerAcceptTransferRequest;
-import com.mx.fintecheando.grpc.proto.mojaloop.ServerAcceptTransferResponse;
-import com.mx.fintecheando.grpc.proto.mojaloop.ServerPartyInfoRequest;
-import com.mx.fintecheando.grpc.proto.mojaloop.StreamClientInitialRequest;
-import com.mx.fintecheando.grpc.proto.mojaloop.StreamFromClientMsg;
-import com.mx.fintecheando.grpc.proto.mojaloop.StreamToClientMsg;
-import com.mx.fintecheando.grpc.proto.mojaloop.TransferRequest;
-import com.mx.fintecheando.grpc.proto.mojaloop.TransferResponse;
+import com.mx.fintecheando.grpc.proto.vnext.InteropGrpcApiGrpc;
+import com.mx.fintecheando.grpc.proto.vnext.LookupParticipantRequest;
+import com.mx.fintecheando.grpc.proto.vnext.LookupParticipantResponse;
+import com.mx.fintecheando.grpc.proto.vnext.LookupPartyRequest;
+import com.mx.fintecheando.grpc.proto.vnext.LookupPartyResponse;
+import com.mx.fintecheando.grpc.proto.vnext.LookupPartySuccessResponse;
+import com.mx.fintecheando.grpc.proto.vnext.ServerAcceptTransferRequest;
+import com.mx.fintecheando.grpc.proto.vnext.ServerAcceptTransferResponse;
+import com.mx.fintecheando.grpc.proto.vnext.ServerPartyInfoRequest;
+import com.mx.fintecheando.grpc.proto.vnext.StreamClientInitialRequest;
+import com.mx.fintecheando.grpc.proto.vnext.StreamFromClientMsg;
+import com.mx.fintecheando.grpc.proto.vnext.StreamToClientMsg;
+import com.mx.fintecheando.grpc.proto.vnext.TransferRequest;
+import com.mx.fintecheando.grpc.proto.vnext.TransferResponse;
 
 import io.grpc.Channel;
 import io.grpc.ClientInterceptor;
