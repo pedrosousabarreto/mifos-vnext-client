@@ -3,9 +3,6 @@ syntax = "proto3";
 option java_multiple_files = true;
 option java_package ="com.mx.fintecheando.grpc.proto.mojaloop";
 option java_outer_classname = "ApiProto";
-//package interop.grpcapi;
-//import "google/protobuf/empty.proto";
-//import "google/protobuf/timestamp.proto";
 import "mojaloop/common.proto";
 import "mojaloop/als.proto";
 import "mojaloop/transfer.proto";
@@ -59,6 +56,7 @@ message StreamToClientMsg{
         ServerPartyInfoRequest partyInfoRequest = 2;
 
         ServerAcceptTransferRequest acceptTransferRequest = 3;
+        TransferPreparedEvt transferPreparedEvt = 4;
     }
 }
 message StreamServerInitialResponse{

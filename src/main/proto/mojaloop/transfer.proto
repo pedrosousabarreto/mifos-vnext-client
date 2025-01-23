@@ -72,6 +72,14 @@ message ServerAcceptTransferResponse{
     optional ErrorResponse error = 6;
 }
 
-
+message TransferPreparedEvt {
+     string homeTransactionId = 1;
+        Party from = 2;
+        Party to = 3;
+        string amountType = 4;
+        Amount amount = 5;
+        TransactionType transactionType = 6;
+        string note = 7;
+}
 
 
