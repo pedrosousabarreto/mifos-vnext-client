@@ -106,12 +106,13 @@ public class ApacheFineract{
         depositRequest.setDateFormat("yyyy-MM-dd'T'HH:mm:ss");
         depositRequest.setTransactionAmount(new BigDecimal(request.getAmount().getAmount()));
         depositRequest.setPaymentTypeId(1);
-        depositRequest.setAccount(serverPartyInfoRequest.getEntityAccountNo());
+        depositRequest.setAccount(serverPartyInfoRequest.getEntityAccountNo());        
         depositRequest.setAccountNumber(serverPartyInfoRequest.getEntityId());
-        depositRequest.setNote(request.getNote());            
+        depositRequest.setNote(request.getNote());
+        depositRequest.setRoutingCode(request.getHomeTransactionId());
+        depositRequest.setBankNumber(request.getFrom().getFspId());
+        depositRequest.setReceiptNumber(request.getHomeTransactionId());
         depositRequest.setLocale("en");
-
-        //return ResponseEntity<JsonNode> depositResponse = sendPostRequest("/deposit", accountDepositServiceRequest); 
         
         ResponseEntity<JsonNode> responseDeposit = sendPostRequest("/deposit", depositRequest);           
         AccountDepositServiceResponse accountDepositServiceResponse = new AccountDepositServiceResponse();
@@ -144,7 +145,7 @@ public class ApacheFineract{
         String json = ow.writeValueAsString(requestBody);
 
         HttpEntity<String> entity = new HttpEntity<>(json, headers);
-        LOGGER.debug("Sending request to {} with body: {}", url, json);
+        LOGGER.info("Sending request to {} with body: {}", url, json);
 
         return restTemplate.exchange(URI.create(url),HttpMethod.POST, entity, JsonNode.class);
     }
