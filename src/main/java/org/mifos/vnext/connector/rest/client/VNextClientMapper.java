@@ -18,9 +18,9 @@
  */
 package org.mifos.vnext.connector.rest.client;
 
-import com.mx.fintecheando.grpc.proto.vnext.Amount;
-import com.mx.fintecheando.grpc.proto.vnext.Party;
-import com.mx.fintecheando.grpc.proto.vnext.TransactionType;
+import org.mifos.grpc.proto.vnext.Amount;
+import org.mifos.grpc.proto.vnext.Party;
+import org.mifos.grpc.proto.vnext.TransactionType;
 import org.mifos.vnext.connector.dto.AmountDto;
 import org.mifos.vnext.connector.dto.PartyDto;
 import org.mifos.vnext.connector.dto.TransactionTypeDto;

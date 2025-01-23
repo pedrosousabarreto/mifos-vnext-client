@@ -18,20 +18,20 @@
  */
 package org.mifos.vnext.connector.config;
 
-import com.mx.fintecheando.grpc.proto.vnext.InteropGrpcApiGrpc;
-import com.mx.fintecheando.grpc.proto.vnext.LookupParticipantRequest;
-import com.mx.fintecheando.grpc.proto.vnext.LookupParticipantResponse;
-import com.mx.fintecheando.grpc.proto.vnext.LookupPartyRequest;
-import com.mx.fintecheando.grpc.proto.vnext.LookupPartyResponse;
-import com.mx.fintecheando.grpc.proto.vnext.LookupPartySuccessResponse;
-import com.mx.fintecheando.grpc.proto.vnext.ServerAcceptTransferRequest;
-import com.mx.fintecheando.grpc.proto.vnext.ServerAcceptTransferResponse;
-import com.mx.fintecheando.grpc.proto.vnext.ServerPartyInfoRequest;
-import com.mx.fintecheando.grpc.proto.vnext.StreamClientInitialRequest;
-import com.mx.fintecheando.grpc.proto.vnext.StreamFromClientMsg;
-import com.mx.fintecheando.grpc.proto.vnext.StreamToClientMsg;
-import com.mx.fintecheando.grpc.proto.vnext.TransferRequest;
-import com.mx.fintecheando.grpc.proto.vnext.TransferResponse;
+import org.mifos.grpc.proto.vnext.InteropGrpcApiGrpc;
+import org.mifos.grpc.proto.vnext.LookupParticipantRequest;
+import org.mifos.grpc.proto.vnext.LookupParticipantResponse;
+import org.mifos.grpc.proto.vnext.LookupPartyRequest;
+import org.mifos.grpc.proto.vnext.LookupPartyResponse;
+import org.mifos.grpc.proto.vnext.LookupPartySuccessResponse;
+import org.mifos.grpc.proto.vnext.ServerAcceptTransferRequest;
+import org.mifos.grpc.proto.vnext.ServerAcceptTransferResponse;
+import org.mifos.grpc.proto.vnext.ServerPartyInfoRequest;
+import org.mifos.grpc.proto.vnext.StreamClientInitialRequest;
+import org.mifos.grpc.proto.vnext.StreamFromClientMsg;
+import org.mifos.grpc.proto.vnext.StreamToClientMsg;
+import org.mifos.grpc.proto.vnext.TransferRequest;
+import org.mifos.grpc.proto.vnext.TransferResponse;
 
 import io.grpc.Channel;
 import io.grpc.ClientInterceptor;
