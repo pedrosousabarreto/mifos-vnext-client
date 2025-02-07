@@ -66,7 +66,7 @@ public class ApacheFineract{
         Integer accountNo = 0;
         String accountNoStr="";
         String entityType="";
-        String officeName="";
+        String officeName="EXTERNAL";
         AccountLookupServiceRequest accountLookupServiceRequest = new AccountLookupServiceRequest();
         accountLookupServiceRequest.setAccount(request.getPartyId());
         accountLookupServiceRequest.setFspId(request.getDestinationFspId());
