@@ -309,7 +309,7 @@ public class VnextClient {
             partyResponse.setMiddleName(grpcResponse.getResponse().getMiddleName());
             partyResponse.setLastName(grpcResponse.getResponse().getLastName());                                
             partyResponse.setOfficeName("EXTERNAL");
-            partyResponse.setAccountType("SAVINGS");
+            partyResponse.setAccountType("EXTERNAL");
             partyResponse.setExecutionStatus(true);
             partyResponse.setSystemMessage("success");
         } 
