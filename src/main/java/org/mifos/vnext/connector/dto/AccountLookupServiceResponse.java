@@ -40,4 +40,5 @@ public class AccountLookupServiceResponse {
     private EntityStatus entityStatus;
     private String firstName;
     private String lastName;
+    private String officeName;
 }
