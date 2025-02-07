@@ -40,7 +40,5 @@ public class PartyResponseDto {
     String destinationFspId;
     String transactionId;
     String systemMessage;
-    String officeName;
-    String accountType;
     boolean executionStatus;
 }
