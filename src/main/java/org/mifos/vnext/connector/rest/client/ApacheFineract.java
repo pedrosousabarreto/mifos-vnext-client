@@ -65,6 +65,8 @@ public class ApacheFineract{
         String displayName ="";
         Integer accountNo = 0;
         String accountNoStr="";
+        String entityType="";
+        String officeName="";
         AccountLookupServiceRequest accountLookupServiceRequest = new AccountLookupServiceRequest();
         accountLookupServiceRequest.setAccount(request.getPartyId());
         accountLookupServiceRequest.setFspId(request.getDestinationFspId());
@@ -80,8 +82,11 @@ public class ApacheFineract{
                 accountLookupServiceResponse.setLastName(myName[1]);
                 accountNo = responseFindClientAccount.getBody().get(0).get("entityId").intValue();
                 accountNoStr = responseFindClientAccount.getBody().get(0).get("entityAccountNo").asText();                
+                entityType = responseFindClientAccount.getBody().get(0).get("entityType").asText();
                 accountLookupServiceResponse.setEntityId(accountNo);
                 accountLookupServiceResponse.setEntityAccountNo(accountNoStr);
+                accountLookupServiceResponse.setEntityType(entityType);
+                accountLookupServiceResponse.setOfficeName(officeName);
             }
             catch(Exception e){
                 LOGGER.error("Error "+e.getMessage());
