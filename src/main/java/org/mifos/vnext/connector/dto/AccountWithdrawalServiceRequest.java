@@ -18,6 +18,7 @@
  */
 package org.mifos.vnext.connector.dto;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -27,10 +28,22 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class AccountDepositServiceResponse {
-    private int officeId; 
-    private int clientId; 
-    private int savingsId; 
-    private int resourceId;
-    private String transactionStatus;
+public class AccountWithdrawalServiceRequest {
+
+    private String tenant;
+    //Tenant short name
+    private String fspId;
+    //Tenant Account
+    private String account;
+    private String transactionDate;
+    private String dateFormat;
+    private BigDecimal transactionAmount;
+    private Integer paymentTypeId;
+    private String note;
+    private Integer accountNumber;
+    private Integer checkNumber;
+    private String routingCode;
+    private String receiptNumber;
+    private String bankNumber;
+    private String locale;
 }

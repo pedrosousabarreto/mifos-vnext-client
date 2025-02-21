@@ -18,6 +18,7 @@
  */
 package org.mifos.vnext.connector.dto;
 
+import java.util.ArrayList;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -27,10 +28,10 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class AccountDepositServiceResponse {
+public class AccountWithdrawalServiceResponse {
     private int officeId; 
     private int clientId; 
     private int savingsId; 
     private int resourceId;
-    private String transactionStatus;
+    private ArrayList<Change> changes;
 }

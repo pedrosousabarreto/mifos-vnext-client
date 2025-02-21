@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import org.mifos.vnext.connector.dto.AccountDepositServiceResponse;
 import org.mifos.vnext.connector.dto.AccountLookupServiceResponse;
+import org.mifos.vnext.connector.dto.AccountWithdrawalServiceResponse;
 import org.mifos.vnext.connector.dto.ParticipantRequest;
 import org.mifos.vnext.connector.dto.ParticipantResponse;
 import org.mifos.vnext.connector.dto.PartyRequestDto;
@@ -197,6 +198,14 @@ public class VnextClient {
                                                             .build();
         AccountLookupServiceResponse accountLookupResponse = apacheFineract.findClientAccount(serverPartyInfoRequest);
         AccountDepositServiceResponse transferFineractResponse = apacheFineract.depositToClientAccount(request, accountLookupResponse);
+        if(transferFineractResponse.getTransactionStatus().equalsIgnoreCase("success")){            
+            ServerPartyInfoRequest sourcePartyInfoRequest = ServerPartyInfoRequest.newBuilder()
+                                                            .setPartyId(request.getFrom().getIdValue())
+                                                            .setDestinationFspId(request.getFrom().getFspId())
+                                                            .build();
+            AccountLookupServiceResponse sourceAccountLookupResponse = apacheFineract.findClientAccount(sourcePartyInfoRequest);
+            AccountWithdrawalServiceResponse withdrawalFineractResponse = apacheFineract.withdrawalFromClientAccount(request, sourceAccountLookupResponse);
+        }
         //Build the response with the Transfer request information
         ServerAcceptTransferResponse.Builder serverAcceptTransferResponse = ServerAcceptTransferResponse.newBuilder();
         serverAcceptTransferResponse

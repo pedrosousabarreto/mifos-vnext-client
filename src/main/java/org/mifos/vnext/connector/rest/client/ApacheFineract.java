@@ -39,6 +39,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import org.mifos.vnext.connector.dto.AccountDepositServiceResponse;
 import org.mifos.vnext.connector.dto.AccountLookupServiceResponse;
+import org.mifos.vnext.connector.dto.AccountWithdrawalServiceRequest;
+import org.mifos.vnext.connector.dto.AccountWithdrawalServiceResponse;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -124,6 +126,7 @@ public class ApacheFineract{
                 accountDepositServiceResponse.setClientId(responseDeposit.getBody().get("clientId").intValue());
                 accountDepositServiceResponse.setSavingsId(responseDeposit.getBody().get("savingsId").intValue());
                 accountDepositServiceResponse.setResourceId(responseDeposit.getBody().get("resourceId").intValue());
+                accountDepositServiceResponse.setTransactionStatus("success");
             }
             catch(Exception e){
                 LOGGER.error("Error "+e.getMessage());
@@ -131,6 +134,49 @@ public class ApacheFineract{
             }
         }
         return accountDepositServiceResponse;
+        
+    }
+    
+    public AccountWithdrawalServiceResponse withdrawalFromClientAccount(ServerAcceptTransferRequest request, AccountLookupServiceResponse serverPartyInfoRequest) throws Exception {
+      
+        
+        String currentDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+
+        // Preparamos los datos para la transferencia
+        AccountWithdrawalServiceRequest withdrawalRequest = new AccountWithdrawalServiceRequest();
+        withdrawalRequest.setTenant(request.getFrom().getFspId());
+        withdrawalRequest.setFspId(request.getFrom().getFspId());
+
+        // Establecemos la fecha de la transacción con la fecha del sistema
+        withdrawalRequest.setTransactionDate(currentDate);
+        withdrawalRequest.setDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        withdrawalRequest.setTransactionAmount(new BigDecimal(request.getAmount().getAmount()));
+        withdrawalRequest.setPaymentTypeId(1);
+        withdrawalRequest.setAccount(serverPartyInfoRequest.getEntityAccountNo());        
+        withdrawalRequest.setAccountNumber(serverPartyInfoRequest.getEntityId());        
+        withdrawalRequest.setNote(request.getNote());
+        withdrawalRequest.setRoutingCode(request.getHomeTransactionId());
+        withdrawalRequest.setBankNumber(request.getFrom().getFspId());
+        withdrawalRequest.setReceiptNumber(request.getHomeTransactionId());
+        withdrawalRequest.setLocale("en");
+        
+        ResponseEntity<JsonNode> responseDeposit = sendPostRequest("/withdrawal", withdrawalRequest);           
+        AccountWithdrawalServiceResponse accountWithdrawalServiceResponse = new AccountWithdrawalServiceResponse();
+        
+        if(responseDeposit.getStatusCode() == HttpStatus.OK ){
+            try {
+                LOGGER.debug("Account Lookup Service Response "+responseDeposit.getBody());                
+                accountWithdrawalServiceResponse.setOfficeId(responseDeposit.getBody().get("officeId").intValue());
+                accountWithdrawalServiceResponse.setClientId(responseDeposit.getBody().get("clientId").intValue());
+                accountWithdrawalServiceResponse.setSavingsId(responseDeposit.getBody().get("savingsId").intValue());
+                accountWithdrawalServiceResponse.setResourceId(responseDeposit.getBody().get("resourceId").intValue());                
+            }
+            catch(Exception e){
+                LOGGER.error("Error "+e.getMessage());
+                LOGGER.error(responseDeposit.getBody().toString());
+            }
+        }
+        return accountWithdrawalServiceResponse;
         
     }
 
