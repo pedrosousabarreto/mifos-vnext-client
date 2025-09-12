@@ -32,6 +32,7 @@ message TransferRequest {
     Amount amount = 5;
     TransactionType transactionType = 6;
     string note = 7;
+    bool threeppiEnabled = 8;
 }
 
 message TransferSuccessResponse{
@@ -59,6 +60,7 @@ message ServerAcceptTransferRequest{
 
     string requestId = 8;
     string homeTransactionId = 9; // carried from initial request
+    bool threeppiEnabled = 10;
 }
 
 message ServerAcceptTransferResponse{
@@ -69,7 +71,9 @@ message ServerAcceptTransferResponse{
     string transferId = 4;
     string homeTransactionId = 5; // carried from initial request
 
-    optional ErrorResponse error = 6;
+    bool threeppiEnabled = 6;
+
+    optional ErrorResponse error = 7;
 }
 
 message TransferPreparedEvt {

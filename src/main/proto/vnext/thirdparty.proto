@@ -1,0 +1,392 @@
+syntax = "proto3";
+
+//package interop.grpcapi.v1;
+import "vnext/common.proto";
+option java_multiple_files = true;
+option java_package = "org.mifos.grpc.proto.vnext";
+option java_outer_classname = "ThirdpartyProto";
+
+//////////////////////////////////
+// GetCustomerAccounts
+
+message GetCustomerAccountsRequest {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+}
+
+message GetCustomerAccountsResponse {
+    string partyId = 1;
+    repeated CustomerAccount accounts = 2;
+}
+
+message CustomerAccount{
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string accountId = 3;
+    string accountNickname = 4;
+    string currency = 5;
+}
+
+// msg sent from server via stream
+message ServerGetCustomerAccountsRequest{
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+}
+
+// msg sent from client via stream - needs error structure
+message ServerGetCustomerAccountsResponse{
+    // header
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+    repeated CustomerAccount accounts = 4;
+
+    optional ErrorResponse error = 5;
+
+
+}
+//////////////////////////////////
+// InitiateOnboard
+
+message InitiateOnboardRequest {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string onboardRequestId = 3;
+    string partyId = 4;
+    repeated AccountAccessRequest accountAccessRequests = 5;
+    bool notifyOtp = 6;
+}
+
+message InitiateOnboardResponse {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string onboardRequestId = 3;
+    string partyId = 4;
+    optional string otpToken = 5;
+}
+
+enum AccessType {
+    CHECK_BALANCE = 0;
+    INITIATE_TRANSFER = 1;
+    GET_LAST_MOVEMENTS = 2;
+}
+message AccountAccessRequest{
+    string accountId = 1;
+    repeated AccessType accessTypes = 2;
+    string currencyCode = 3;
+}
+
+// msg sent from server via stream
+message ServerInitiateOnboardRequest{
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string onboardRequestId = 3;
+    string partyId = 4;
+    repeated AccountAccessRequest accountAccessRequests = 5;
+    bool notifyOtp = 6;
+
+
+}
+
+// msg sent from client via stream - needs error structure
+message ServerInitiateOnboardResponse{
+    // header
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string onboardRequestId = 3;
+    string partyId = 4;
+    optional string otpToken = 5;
+
+    optional ErrorResponse error = 6;
+
+
+}
+//////////////////////////////////
+// ConfirmOnboard
+
+message TryConfirmOnboardRequest {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string onboardRequestId = 3;
+    string consentRequestId = 4;
+    string partyId = 5;
+    string otpToken = 6;
+}
+
+message TryConfirmOnboardResponse{
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string onboardRequestId = 3;
+    string consentRequestId = 4;
+    string partyId = 5;
+
+    oneof responseType{
+        TryConfirmOnboardSuccessResponse successResponse = 6;
+        TryConfirmOnboardFailureResponse failureResponse = 7;
+    }
+}
+
+message TryConfirmOnboardSuccessResponse{
+    string contentToken = 1;
+}
+message TryConfirmOnboardFailureResponse{
+    string failureReason = 1;
+}
+
+// msg sent from server via stream
+message ServerTryConfirmOnboardRequest{
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string onboardRequestId = 3;
+    string consentRequestId = 4;
+    string partyId = 5;
+    string otpToken = 6;
+
+
+}
+
+// msg sent from client via stream - needs error structure
+message ServerTryConfirmOnboardResponse{
+    // header
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string onboardRequestId = 3;
+    string consentRequestId = 4;
+    string partyId = 5;
+    optional string consentToken = 6;
+
+    optional ErrorResponse error = 8;
+
+
+}
+
+// GetAccountsBalance
+
+message GetAccountsBalanceRequest {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+    string consentRequestId = 4;
+    string consentToken = 5;
+    repeated string accountIds = 6;
+}
+
+
+message CustomerAccountBalance {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string accountId = 3;
+    string accountNickname = 4;
+    string currency = 5;
+    string amount = 6;
+}
+
+message GetAccountsBalanceResponse {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string consentRequestId = 3;
+    string partyId = 4;
+
+    oneof responseType {
+        GetAccountsBalanceSuccessResponse successResponse = 5;
+        GetAccountsBalanceFailureResponse failureResponse = 6;
+    }
+}
+
+message GetAccountsBalanceSuccessResponse {
+    repeated CustomerAccountBalance accounts = 1;
+}
+message GetAccountsBalanceFailureResponse {
+    string failureReason = 1;
+}
+
+// msg sent from server via stream
+message ServerGetAccountsBalanceRequest{
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+    string consentRequestId = 4;
+    string consentToken = 5;
+    repeated string accountIds = 6;
+
+
+}
+
+// msg sent from client via stream - needs error structure
+message ServerGetAccountsBalanceResponse{
+    // header
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string consentRequestId = 3;
+    string partyId = 4;
+    repeated CustomerAccountBalance accounts = 5;
+
+    optional ErrorResponse error = 6;
+
+
+}
+
+
+// Transaction
+
+message InitiateTransactionRequest {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+    string consentRequestId = 4;
+    string consentToken = 5;
+    string transactionId = 6;
+    string payerFsp = 7;
+    string payeeFsp = 8;
+    string payerId = 9;
+    string payerIdType = 10;
+    string payeeId = 11;
+    string payeeIdType = 12;
+    string amountType = 13;
+    string currencyCode = 14;
+    string amount = 15;
+    string scenario = 16;
+    string subScenario = 17;
+    string initiator = 18;
+    string initiatorType = 19;
+    string note = 20;
+    string threeppiEnabled = 21;
+}
+
+
+message InitiateTransactionResponse {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string consentRequestId = 3;
+    string partyId = 4;
+    string transactionId = 5;
+
+    oneof responseType {
+        InitiateTransactionSuccessResponse successResponse = 6;
+        InitiateTransactionFailureResponse failureResponse = 7;
+    }
+}
+
+message InitiateTransactionSuccessResponse {
+    string transactionState = 1;
+}
+message InitiateTransactionFailureResponse {
+    string failureReason = 1;
+}
+
+// msg sent from server via stream
+message ServerInitiateTransactionRequest{
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+    string consentRequestId = 4;
+    string consentToken = 5;
+    string transactionId = 6;
+    string payerFsp = 7;
+    string payeeFsp = 8;
+    string payerId = 9;
+    string payerIdType = 10;
+    string payeeId = 11;
+    string payeeIdType = 12;
+    string amountType = 13;
+    string currencyCode = 14;
+    string amount = 15;
+    string scenario = 16;
+    string subScenario = 17;
+    string initiator = 18;
+    string initiatorType = 19;
+    string note = 20;
+    bool threeppiEnabled = 21;
+}
+
+// msg sent from client via stream - needs error structure
+message ServerInitiateTransactionResponse{
+    // header
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string consentRequestId = 3;
+    string partyId = 4;
+    string transactionId = 5;
+    string transactionState = 6;
+
+    optional ErrorResponse error = 7;
+}
+
+message Transaction {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string transactionId = 3;
+    string date = 4;
+    string description = 5;
+    string amount = 6;
+    string category = 7;
+    string status = 8;
+}
+
+message GetAccountTransactionsRequest {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string consentRequestId = 3;
+    string partyId = 4;
+    string accountId = 5;
+    string consentToken = 6;
+    string startDate = 7;
+    string endDate = 8;
+    int32 limit = 9;
+    string categoryFilter = 10;
+    string statusFilter = 11;
+}
+
+message GetAccountTransactionsResponse {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string consentRequestId = 3;
+    string partyId = 4;
+    string accountId = 5;
+
+    oneof responseType {
+        GetAccountTransactionsSuccessResponse successResponse = 6;
+        GetAccountTransactionsFailureResponse failureResponse = 7;
+    }
+}
+
+message GetAccountTransactionsSuccessResponse {
+    repeated Transaction transactionsList = 1;
+    string currency = 2;
+    int32 totalCount = 3;
+}
+
+message GetAccountTransactionsFailureResponse {
+    string failureReason = 1;
+}
+
+message ServerGetAccountTransactionsRequest {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+    string accountId = 4;
+    string consentRequestId = 5;
+    string consentToken = 6;
+    string startDate = 7;
+    string endDate = 8;
+    int32 limit = 9;
+    string categoryFilter = 10;
+    string statusFilter = 11;
+}
+
+message ServerGetAccountTransactionsResponse {
+    string sourceFspId = 1;
+    string destinationFspId = 2;
+    string partyId = 3;
+    string accountId = 4;
+    string consentRequestId = 5;
+
+    oneof responseType {
+        GetAccountTransactionsSuccessResponse successResponse = 6;
+        ErrorResponse error = 7;
+    }
+}
+
+//////////////////////////////////

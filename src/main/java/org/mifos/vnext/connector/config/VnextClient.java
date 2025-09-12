@@ -27,8 +27,11 @@ import org.mifos.grpc.proto.vnext.LookupPartySuccessResponse;
 import org.mifos.grpc.proto.vnext.ServerAcceptTransferRequest;
 import org.mifos.grpc.proto.vnext.ServerAcceptTransferResponse;
 import org.mifos.grpc.proto.vnext.ServerPartyInfoRequest;
+import org.mifos.grpc.proto.vnext.StreamClientChallengeResponse;
 import org.mifos.grpc.proto.vnext.StreamClientInitialRequest;
 import org.mifos.grpc.proto.vnext.StreamFromClientMsg;
+import org.mifos.grpc.proto.vnext.StreamServerInitialResponse;
+import org.mifos.grpc.proto.vnext.StreamServerReadyResponse;
 import org.mifos.grpc.proto.vnext.StreamToClientMsg;
 import org.mifos.grpc.proto.vnext.TransferRequest;
 import org.mifos.grpc.proto.vnext.TransferResponse;
@@ -44,8 +47,12 @@ import io.grpc.stub.StreamObserver;
 
 import java.io.File;
 import java.io.IOException;
-
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+
 import org.mifos.vnext.connector.dto.AccountDepositServiceResponse;
 import org.mifos.vnext.connector.dto.AccountLookupServiceResponse;
 import org.mifos.vnext.connector.dto.AccountWithdrawalServiceResponse;
@@ -60,254 +67,399 @@ import org.mifos.vnext.connector.rest.client.VNextClientMapper;
 import static org.mifos.vnext.connector.rest.client.VNextClientMapper.mapToAmount;
 import static org.mifos.vnext.connector.rest.client.VNextClientMapper.mapToParty;
 import static org.mifos.vnext.connector.rest.client.VNextClientMapper.mapToTransactionType;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class VnextClient {
-    
-    private static Logger logger = LoggerFactory.getLogger(VnextClient.class);
+
+    private static final Logger logger = LoggerFactory.getLogger(VnextClient.class);
+
     private final ManagedChannel channel;
     private final Channel channelWithHeader;
-    private final InteropGrpcApiGrpc.InteropGrpcApiStub connectionToVnext;    
+    private final InteropGrpcApiGrpc.InteropGrpcApiStub connectionToVnext;
     private final InteropGrpcApiGrpc.InteropGrpcApiBlockingStub connectionToBlockingVnext;
     private StreamObserver<StreamFromClientMsg> streamFromClientMessageObserver;
     private boolean Loggined = false;
-    private final String pchVnextFspId;    
-    private final String pchVnextClientName;    
+    private final String pchVnextFspId;
+    private final String pchVnextClientName;
     private final ApacheFineract apacheFineract;
-    
-    public VnextClient(String pchVnextAccessToken, String pchVnextFspId, 
-            String pchVnextClientName, String pchVnextServerDNS, 
-            int pchVnextServerPort, String pchVnextServerCertificate,
-            int pchVnextKeepAliveTime, int pchVnextKeepAliveTimeout, 
-            boolean pchVnextKeepAliveTimeWithoutCalls, ApacheFineract apacheFineract) throws IOException {
-        //Set values required for the start stream call
-        this.pchVnextFspId= pchVnextFspId; 
+
+    // Nuevos campos para autenticación
+    private final CryptoAndCertHelper cryptoHelper;
+    private final HeaderClientInterceptor headerInterceptor;
+    private final String clientId;
+    private String sessionSecret;
+    private final String clientCertPem;
+    private final boolean mainClient;
+    private final String pchVnextClientVersion;
+
+    // Constantes de timeout
+    private static final int DEFAULT_GRPC_CONNECT_TIMEOUT_MS = 5000;
+    private static final int DEFAULT_GRPC_KEEPALIVE_TIME_MS = 10000;
+    private static final int DEFAULT_GRPC_KEEPALIVE_TIMEOUT_MS = 5000;
+
+    public VnextClient( String pchVnextFspId,
+                       String pchVnextClientName, String pchVnextClientVersion,
+                       String clientPrivateKeyPath, String caCertPath, String clientCertPath,
+                       boolean mainClient, String pchVnextServerDNS,
+                       int pchVnextServerPort, String pchVnextServerCertificate,
+                       int pchVnextKeepAliveTime, int pchVnextKeepAliveTimeout,
+                       boolean pchVnextKeepAliveTimeWithoutCalls, ApacheFineract apacheFineract) throws Exception {
+
+        // Almacenar parámetros
+        this.pchVnextFspId = pchVnextFspId;
         this.pchVnextClientName = pchVnextClientName;
+        this.pchVnextClientVersion = pchVnextClientVersion;
         this.apacheFineract = apacheFineract;
-        //Prepare the TLS secure connection channel
+        this.clientCertPem = loadClientCertPem(clientCertPath);
+        this.mainClient = mainClient;
+
+        // Inicializar crypto helper
+        logger.info("Initializing CryptoAndCertHelper with private key: {} and CA cert: {}",
+                clientPrivateKeyPath, caCertPath);
+        this.cryptoHelper = new CryptoAndCertHelper(clientPrivateKeyPath, caCertPath);
+
+        // Generar client ID único
+        this.clientId = UUID.randomUUID().toString();
+        logger.info("Generated client ID for authentication: {}", clientId);
+
+        // Preparar el canal TLS
         TlsChannelCredentials.Builder tlsBuilder = TlsChannelCredentials.newBuilder();
         tlsBuilder.trustManager(new File(pchVnextServerCertificate));
-        //Create the Grpc connection channel using the parameters
+
+        // Usar valores por defecto si no se proporcionan
+        int keepAliveTime = pchVnextKeepAliveTime > 0 ? pchVnextKeepAliveTime : DEFAULT_GRPC_KEEPALIVE_TIME_MS;
+        int keepAliveTimeout = pchVnextKeepAliveTimeout > 0 ? pchVnextKeepAliveTimeout : DEFAULT_GRPC_KEEPALIVE_TIMEOUT_MS;
+
+        // Crear el canal gRPC
         this.channel = Grpc.newChannelBuilderForAddress(pchVnextServerDNS, pchVnextServerPort, tlsBuilder.build())
-                .keepAliveTime(pchVnextKeepAliveTime, TimeUnit.MILLISECONDS)
-                .keepAliveTimeout(pchVnextKeepAliveTimeout, TimeUnit.MINUTES)
+                .keepAliveTime(keepAliveTime, TimeUnit.MILLISECONDS)
+                .keepAliveTimeout(keepAliveTimeout, TimeUnit.MILLISECONDS)
                 .keepAliveWithoutCalls(pchVnextKeepAliveTimeWithoutCalls)
-                .build();        
-        //Prepare the headers required for the stream calls
-        ClientInterceptor interceptor = new HeaderClientInterceptor(pchVnextAccessToken, pchVnextFspId);        
-        //Create the custom Grpc channel
-        this.channelWithHeader = ClientInterceptors.intercept(channel, interceptor);        
-        //Create the non blockin stub instance
-        connectionToVnext = InteropGrpcApiGrpc.newStub(channelWithHeader);  
-        //Create the blockin stub instance
+                .build();
+
+        // Crear el interceptor y configurar clientId
+        this.headerInterceptor = new HeaderClientInterceptor(pchVnextFspId);
+        this.headerInterceptor.setClientId(this.clientId);
+
+        // Crear el canal personalizado con headers
+        this.channelWithHeader = ClientInterceptors.intercept(channel, headerInterceptor);
+
+        // Crear los stubs
+        connectionToVnext = InteropGrpcApiGrpc.newStub(channelWithHeader);
         connectionToBlockingVnext = InteropGrpcApiGrpc.newBlockingStub(channelWithHeader);
+
+        logger.info("VnextClient initialized successfully for FSP: {}", pchVnextFspId);
+    }
+
+    public boolean start() {
+        logger.info("Starting authentication process for client: {}", clientId);
+
+        // Preparar mensaje inicial
+        StreamClientInitialRequest initialRequest = StreamClientInitialRequest.newBuilder()
+                .setFspId(this.pchVnextFspId)
+                .setClientName(this.pchVnextClientName)
+                .setClientVersion(this.pchVnextClientVersion)
+                .setMainClient(this.mainClient)
+                .setClientPem(this.clientCertPem)
+                .build();
+
+        StreamFromClientMsg initialMessage = StreamFromClientMsg.newBuilder()
+                .setInitialRequest(initialRequest)
+                .build();
+
+        // Preparar el observer para respuestas del servidor
+        StreamObserver<StreamToClientMsg> responseObserver = new StreamObserver<StreamToClientMsg>() {
+            @Override
+            public void onNext(StreamToClientMsg streamToClientMsg) {
+                try {
+                    switch (streamToClientMsg.getResponseTypeCase()) {
+                        case INITIALRESPONSE:
+                            logger.debug("Processing INITIALRESPONSE - Challenge received");
+                            handleInitialResponse(streamToClientMsg.getInitialResponse());
+                            break;
+                        case READYRESPONSE:
+                            logger.debug("Processing READYRESPONSE - Authentication complete");
+                            handleReadyResponse(streamToClientMsg.getReadyResponse());
+                            break;
+                        case PARTYINFOREQUEST:
+                            if (Loggined) {
+                                logger.debug("Processing PARTYINFOREQUEST");
+                                sendPartyInfo(streamToClientMsg);
+                            } else {
+                                logger.warn("Received party info request but client not authenticated");
+                            }
+                            break;
+                        case ACCEPTTRANSFERREQUEST:
+                            if (Loggined) {
+                                logger.debug("Processing ACCEPTTRANSFERREQUEST");
+                                sendMoneyTransfer(streamToClientMsg);
+                            } else {
+                                logger.warn("Received transfer request but client not authenticated");
+                            }
+                            break;
+                        case STREAMMESSAGEERROR:
+                            logger.error("Stream error received: {}",
+                                    streamToClientMsg.getStreamMessageError().getMessage());
+                            break;
+                        default:
+                            logger.debug("Received unhandled message type: {}",
+                                    streamToClientMsg.getResponseTypeCase());
+                    }
+                } catch (Exception e) {
+                    logger.error("Error processing server message: {}", e.getMessage(), e);
+                }
+            }
+
+            @Override
+            public void onCompleted() {
+                logger.info("Server closed the stream");
+                Loggined = false;
+                sessionSecret = null;
+                headerInterceptor.clearSession();
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                logger.error("Stream error occurred", t);
+                Loggined = false;
+                sessionSecret = null;
+                headerInterceptor.clearSession();
+            }
+        };
+
+        try {
+            streamFromClientMessageObserver = connectionToVnext.startStream(responseObserver);
+            streamFromClientMessageObserver.onNext(initialMessage);
+            logger.info("Authentication process started successfully for client: {}", clientId);
+            return true;
+        } catch (StatusRuntimeException e) {
+            logger.error("Failed to start authentication - gRPC status: {}", e.getStatus(), e);
+            return false;
+        } catch (Exception e) {
+            logger.error("Failed to start authentication", e);
+            return false;
+        }
+    }
+
+    private void handleInitialResponse(StreamServerInitialResponse response) {
+        try {
+            logger.debug("Validating server signature and processing challenge");
+
+            // Validar firma del servidor
+            boolean isValid = cryptoHelper.validateSignature(
+                    this.clientId,
+                    response.getSignedClientId(),
+                    response.getPubKeyFingerprint()
+            );
+
+            if (!isValid) {
+                logger.error("Invalid server signature received. Expected fingerprint: {}, Received: {}",
+                        cryptoHelper.getCaPublicKeyFingerprint(), response.getPubKeyFingerprint());
+                throw new SecurityException("Invalid server signature");
+            }
+
+            logger.debug("Server signature validated successfully");
+
+            // Firmar el challenge nonce
+            String signedNonce = cryptoHelper.signString(response.getChallengeNonce());
+            String clientPubKeyFingerprint = cryptoHelper.getCaPublicKeyFingerprint();
+
+            logger.debug("Challenge nonce signed successfully");
+
+            // Enviar respuesta al challenge
+            StreamClientChallengeResponse challengeResponse = StreamClientChallengeResponse.newBuilder()
+                    .setSignedNonce(signedNonce)
+                    .setPubKeyFingerprint(clientPubKeyFingerprint)
+                    .build();
+
+            StreamFromClientMsg responseMsg = StreamFromClientMsg.newBuilder()
+                    .setChallengeResponse(challengeResponse)
+                    .build();
+
+            streamFromClientMessageObserver.onNext(responseMsg);
+            logger.info("Challenge response sent to server successfully");
+
+        } catch (Exception e) {
+            logger.error("Error handling initial response: {}", e.getMessage(), e);
+            // Intentar cerrar el stream limpiamente
+            try {
+                if (streamFromClientMessageObserver != null) {
+                    streamFromClientMessageObserver.onError(e);
+                }
+            } catch (Exception ex) {
+                logger.error("Error closing stream after authentication failure", ex);
+            }
+        }
+    }
+
+    private void handleReadyResponse(StreamServerReadyResponse response) {
+        this.sessionSecret = response.getSessionSecret();
+
+        // Actualizar el interceptor con el session secret
+        headerInterceptor.setSessionSecret(this.sessionSecret);
+
+        this.Loggined = true;
+        logger.info("Authentication complete. Session ready with secret for client: {}", clientId);
+    }
+
+    private String loadClientCertPem(String certFilePath) throws IOException {
+        try {
+            String certContent = new String(Files.readAllBytes(Paths.get(certFilePath)), StandardCharsets.UTF_8);
+            logger.debug("Loaded client certificate from: {}", certFilePath);
+            return certContent;
+        } catch (IOException e) {
+            logger.error("Failed to load client certificate from: {}", certFilePath, e);
+            throw new IOException("Failed to load client certificate: " + e.getMessage(), e);
+        }
+    }
+
+    private void checkAuthentication() {
+        if (!this.Loggined || !headerInterceptor.isAuthenticated()) {
+            throw new IllegalStateException("vNext Client not authenticated yet. Call start() first.");
+        }
     }
 
     public void shutdown() throws InterruptedException {
         logger.info("Disconnecting vNext Client");
+        this.Loggined = false;
+        this.sessionSecret = null;
+        headerInterceptor.clearSession();
+
+        if (streamFromClientMessageObserver != null) {
+            try {
+                streamFromClientMessageObserver.onCompleted();
+            } catch (Exception e) {
+                logger.warn("Error completing stream: {}", e.getMessage());
+            }
+        }
+
         channel.shutdown().awaitTermination(10, TimeUnit.SECONDS);
         logger.info("vNext Client Disconnected");
     }
 
-    public boolean start() {
-        //Prepare the initial message
-        StreamFromClientMsg initialMessage =  StreamFromClientMsg.newBuilder()
-                        .setInitialRequest(StreamClientInitialRequest.newBuilder()
-                                .setFspId(this.pchVnextFspId)
-                                .setClientName(this.pchVnextClientName).build()).build();
-        //Prepare the initial streamm call object
-        StreamObserver<StreamToClientMsg> responseObserver = new StreamObserver<StreamToClientMsg>() {            
-            @Override
-            public void onNext(StreamToClientMsg streamToClientMsg) {
-                //Depending on the message type received we proccess it
-                switch (streamToClientMsg.getResponseTypeCase()) {                    
-                    case PARTYINFOREQUEST:
-                        //Look up the information of the beneficiary
-                        logger.debug("Processing PARTYINFOREQUEST");
-                        sendPartyInfo(streamToClientMsg);                        
-                        break;
-                    case ACCEPTTRANSFERREQUEST:
-                        //Execute the Money Transfer
-                        logger.debug("Processing ACCEPTTRANSFERREQUEST");
-                        sendMoneyTransfer(streamToClientMsg);
-                        break;
-                    case INITIALRESPONSE:
-                        //Execute the Initial Connection only one time
-                        logger.debug("Processing INITIALRESPONSE");                            
-                        logger.debug("vNext Client is already initialized "+streamToClientMsg.getInitialResponse().isInitialized()); 
-                        if(streamToClientMsg.getInitialResponse().isInitialized())
-                            break;
-                    default:
-                        //Print a message when receiving a not supported message
-                        logger.info("Message type not supported: " + streamToClientMsg.getResponseTypeCase());                        
-                }
-            }
-            @Override
-            public void onCompleted() {
-                logger.debug("vNext Client stream completed");                
-            }
-            @Override
-            public void onError(Throwable t) {
-                logger.error("vNext Client stream error: "+t.getMessage());   
-            }
-        };        
-        //Execute the initial stream
-        streamFromClientMessageObserver = connectionToVnext.startStream(responseObserver);        
-        try {
-            //Send the initial message to the stream
-            streamFromClientMessageObserver.onNext(initialMessage);            
-        } catch (StatusRuntimeException e) {
-            //Error received while sending the initial message
-            logger.error("vNext Client Initial Connection failed with status:" + e.getStatus() + " message:" + e.getMessage());
-            //Return the non successful status
-            return false;
-        }
-        //vNext Grcp Client Connected and initialized 
-        logger.info("******************************************************");        
-        logger.info("* vNext Client Connected and Initialized Successfuly *");
-        logger.info("******************************************************");        
-        this.Loggined = true;
-        //Return the successful status
-        return true;
-    }
-    
+    // Métodos existentes de negocio (actualizados para verificar autenticación)
+
     private void sendMoneyTransfer(StreamToClientMsg streamToClientMsg) {
-        //Verify that the Stream is connected and initialized
+        checkAuthentication();
+
         if (streamFromClientMessageObserver == null) {
             logger.error("vNext Client Not Connected");
             throw new IllegalStateException("vNext Client Not Connected.");
-        }        
+        }
+
         try{
-            //Prepare the Money Transfer Message        
-            StreamFromClientMsg strmFromClient = handleTransferRequest(streamToClientMsg.getAcceptTransferRequest());                                                        
-            //Send the Money Transfer Message Response to the Stream
+            StreamFromClientMsg strmFromClient = handleTransferRequest(streamToClientMsg.getAcceptTransferRequest());
             sendResponseMessage(strmFromClient);
         }
         catch(Exception e){
-            //Print the error received when sending the Money Transfer Message Response to the Stream
-            logger.error("ERROR "+  e.getMessage());
+            logger.error("ERROR processing transfer request: {}", e.getMessage(), e);
         }
     }
-    
-    public StreamFromClientMsg handleTransferRequest(ServerAcceptTransferRequest request) throws Exception {       
-        
+
+    public StreamFromClientMsg handleTransferRequest(ServerAcceptTransferRequest request) throws Exception {
+        checkAuthentication();
+
         ServerPartyInfoRequest serverPartyInfoRequest = ServerPartyInfoRequest.newBuilder()
-                                                            .setPartyId(request.getTo().getIdValue())
-                                                            .setDestinationFspId(request.getTo().getFspId())
-                                                            .build();
+                .setPartyId(request.getTo().getIdValue())
+                .setDestinationFspId(request.getTo().getFspId())
+                .build();
         AccountLookupServiceResponse accountLookupResponse = apacheFineract.findClientAccount(serverPartyInfoRequest);
         AccountDepositServiceResponse transferFineractResponse = apacheFineract.depositToClientAccount(request, accountLookupResponse);
-        if(transferFineractResponse.getTransactionStatus().equalsIgnoreCase("success")){            
+
+        if(transferFineractResponse.getTransactionStatus().equalsIgnoreCase("success")){
             ServerPartyInfoRequest sourcePartyInfoRequest = ServerPartyInfoRequest.newBuilder()
-                                                            .setPartyId(request.getFrom().getIdValue())
-                                                            .setDestinationFspId(request.getFrom().getFspId())
-                                                            .build();
+                    .setPartyId(request.getFrom().getIdValue())
+                    .setDestinationFspId(request.getFrom().getFspId())
+                    .build();
             AccountLookupServiceResponse sourceAccountLookupResponse = apacheFineract.findClientAccount(sourcePartyInfoRequest);
             AccountWithdrawalServiceResponse withdrawalFineractResponse = apacheFineract.withdrawalFromClientAccount(request, sourceAccountLookupResponse);
         }
-        //Build the response with the Transfer request information
+
         ServerAcceptTransferResponse.Builder serverAcceptTransferResponse = ServerAcceptTransferResponse.newBuilder();
         serverAcceptTransferResponse
-                    .setTransferId(request.getTransferId())
-                    .setRequestId(request.getRequestId())
-                    .setDestinationFspId(request.getFrom().getFspId())
-                    .setSourceFspId(request.getTo().getFspId())
-                    .setHomeTransactionId(request.getHomeTransactionId())                                        
-                    .build();        
-        logger.debug("Final response: \n"+ serverAcceptTransferResponse);
-        //Build the stream from client message
-        StreamFromClientMsg transferResponse = StreamFromClientMsg.newBuilder()
-                                            .setAcceptTransferResponse(serverAcceptTransferResponse)
-                                            .build();
-        //Return the stream from client message
-        return transferResponse;        
+                .setTransferId(request.getTransferId())
+                .setRequestId(request.getRequestId())
+                .setDestinationFspId(request.getFrom().getFspId())
+                .setSourceFspId(request.getTo().getFspId())
+                .setHomeTransactionId(request.getHomeTransactionId())
+                .build();
+
+        logger.debug("Final transfer response built");
+
+        return StreamFromClientMsg.newBuilder()
+                .setAcceptTransferResponse(serverAcceptTransferResponse)
+                .build();
     }
-    
+
     private void sendPartyInfo(StreamToClientMsg streamToClientMsg) {
-        //Verify that the Stream is connected and initialized
+        checkAuthentication();
+
         if (streamFromClientMessageObserver == null) {
             logger.error("vNext Client Not Connected");
             throw new IllegalStateException("vNext Client Not Connected");
-        }        
+        }
+
         try{
-            //Prepare the Party Information Message        
-            StreamFromClientMsg strmFromClient = handlePartyInfoRequest(streamToClientMsg.getPartyInfoRequest());        
-            //Send the Party Information Message Response to the Stream
+            StreamFromClientMsg strmFromClient = handlePartyInfoRequest(streamToClientMsg.getPartyInfoRequest());
             sendResponseMessage(strmFromClient);
         }
         catch(Exception e){
-            //Print the error received when sending the Party Information Message Response to the Stream
-            logger.error("ERROR "+  e.getMessage());
+            logger.error("ERROR processing party info request: {}", e.getMessage(), e);
         }
     }
-    
+
     public StreamFromClientMsg handlePartyInfoRequest(ServerPartyInfoRequest request) throws Exception {
-        //Call the Apache Fineract Rest Client       
+        checkAuthentication();
 
         AccountLookupServiceResponse accountLookupResponse = apacheFineract.findClientAccount(request);
-        
-        //Build the response with the Party Info request information        
+
         LookupPartyResponse.Builder responseBuilder = LookupPartyResponse.newBuilder();
-        // Build the message response with account information        
         LookupPartySuccessResponse successResponse = LookupPartySuccessResponse.newBuilder()
-                                                        .setPartyId(request.getPartyId())
-                                                        .setPartyIdType(request.getPartyIdType())
-                                                        .setFirstName(accountLookupResponse.getFirstName())
-                                                        .setLastName(accountLookupResponse.getLastName())                
-                                                        .build();
+                .setPartyId(request.getPartyId())
+                .setPartyIdType(request.getPartyIdType())
+                .setFirstName(accountLookupResponse.getFirstName())
+                .setLastName(accountLookupResponse.getLastName())
+                .build();
         responseBuilder
-                    .setSourceFspId(request.getDestinationFspId())
-                    .setDestinationFspId(request.getSourceFspId())
-                    .setRequestId(request.getPendingRequestId())
-                    .setResponse(successResponse);        
+                .setSourceFspId(request.getDestinationFspId())
+                .setDestinationFspId(request.getSourceFspId())
+                //.setRequestId(request.getPendingRequestId())
+                .setResponse(successResponse);
+
         LookupPartyResponse response = responseBuilder.build();
-        logger.debug("Final response built:  \n"+ response);
-        //Build the stream from client message
-        StreamFromClientMsg partyInfoResponse = StreamFromClientMsg.newBuilder()
-                                            .setLookupPartyInfoResponse(response)
-                                            .build();
-        //Return the stream from client message
-        return partyInfoResponse;        
+        logger.debug("Party info response built");
+
+        return StreamFromClientMsg.newBuilder()
+                .setLookupPartyInfoResponse(response)
+                .build();
     }
 
     public void sendResponseMessage(StreamFromClientMsg strmFromClient) throws InterruptedException {
-        //Verify the response type for proper response
-        logger.debug("Sending message response type "+strmFromClient.getRequestTypeCase());
-        if("SHUTDOWN".equals(strmFromClient.getRequestTypeCase())){
-            //Shutdown message received
-            this.streamFromClientMessageObserver.onCompleted();
-            this.Loggined = false;
-            shutdown();
+        checkAuthentication();
+
+        logger.debug("Sending message response type: {}", strmFromClient.getRequestTypeCase());
+
+        if (this.streamFromClientMessageObserver != null) {
+            this.streamFromClientMessageObserver.onNext(strmFromClient);
         }
-        else{            
-            //Send the response message to the stream
-            if(this.streamFromClientMessageObserver != null) {                
-                this.streamFromClientMessageObserver.onNext(strmFromClient);                
-            }                
-        }        
     }
-    
-    public PartyResponseDto getPartyInfo(PartyRequestDto partyRequest) {        
-        //Verify if the vNext client has been connected    
-        if (!this.Loggined) {
-            logger.error("vNext Client not initialized yet." );
-            throw new IllegalStateException("vNext Client not initialized yet.");            
-        }
-        //Prepare and setup the lookup request
+
+    public PartyResponseDto getPartyInfo(PartyRequestDto partyRequest) {
+        checkAuthentication();
+
         LookupPartyRequest grpcRequest = LookupPartyRequest.newBuilder()
                 .setPartyId(partyRequest.getPartyId())
                 .setPartyIdType(partyRequest.getPartyIdType())
                 .setCurrencyCode(partyRequest.getCurrencyCode())
                 .setOwnerFspId(partyRequest.getOwnerFspId())
-                .build();        
-        //Prepare the lookup response
+                .build();
+
         LookupPartyResponse grpcResponse = LookupPartyResponse.newBuilder().build();
-        PartyResponseDto partyResponse = new PartyResponseDto();        
-        try {         
-            //Execute the lookup party information
-            grpcResponse = this.connectionToBlockingVnext.lookupParty(grpcRequest);            
-            //Fill the Lookup party information response 
+        PartyResponseDto partyResponse = new PartyResponseDto();
+        try {
+            grpcResponse = this.connectionToBlockingVnext.lookupParty(grpcRequest);
             partyResponse.setTransactionId(grpcResponse.getRequestId());
             partyResponse.setCurrencyCode(grpcResponse.getResponse().getCurrencyCode());
             partyResponse.setDestinationFspId(grpcResponse.getDestinationFspId());
@@ -316,27 +468,21 @@ public class VnextClient {
             partyResponse.setPartyIdType(grpcResponse.getResponse().getPartyIdType());
             partyResponse.setFirsName(grpcResponse.getResponse().getFirstName());
             partyResponse.setMiddleName(grpcResponse.getResponse().getMiddleName());
-            partyResponse.setLastName(grpcResponse.getResponse().getLastName());        
+            partyResponse.setLastName(grpcResponse.getResponse().getLastName());
             partyResponse.setExecutionStatus(true);
             partyResponse.setSystemMessage("success");
-        } 
+        }
         catch (Exception e) {
-            //Print the error message
-            logger.error("PARTYINFOREQUEST failure: "+ e.getMessage());
-            //Fill the Lookup party information response 
+            logger.error("PARTYINFOREQUEST failure: {}", e.getMessage(), e);
             partyResponse.setExecutionStatus(false);
             partyResponse.setSystemMessage(e.getMessage());
-        }        
+        }
         return partyResponse;
     }
-    
+
     public TransferResponseDto executeTransfer(TransferRequestDto transferRequest) {
-        //Verify if the vNext client has been connected    
-        if (!this.Loggined) {
-            logger.error("vNext Client not initialized yet." );
-            throw new IllegalStateException("vNext Client not initialized yet.");            
-        }
-        //Prepare and setup the Accept Transfer Request
+        checkAuthentication();
+
         TransferRequest executeTransferRequest = TransferRequest.newBuilder()
                 .setHomeTransactionId(transferRequest.getHomeTransactionId())
                 .setFrom(VNextClientMapper.mapToParty(transferRequest.getFrom()))
@@ -346,61 +492,73 @@ public class VnextClient {
                 .setTransactionType(VNextClientMapper.mapToTransactionType(transferRequest.getTransactionType()))
                 .setNote(transferRequest.getNote())
                 .build();
-        //Prepare the Accept Transfer Response
+
         TransferResponse grpcResponse = TransferResponse.newBuilder().build();
-        TransferResponseDto transferResponse = new TransferResponseDto();        
-        try {         
-            //Execute the Accept Transfer Response 
+        TransferResponseDto transferResponse = new TransferResponseDto();
+        try {
             grpcResponse = this.connectionToBlockingVnext.executeTransfer(executeTransferRequest);
-            //Fill the Accept Transfer Response 
             transferResponse.setHomeTransactionId(grpcResponse.getHomeTransactionId());
             transferResponse.setTransactionId(grpcResponse.getSuccess().getTransferId());
             transferResponse.setExecutionStatus(true);
             transferResponse.setSystemMessage("success");
-        } 
+        }
         catch (Exception e) {
-            //Print the error message
-            logger.error("ACCEPTTRANSFERREQUEST failure: "+ e.getMessage());
-            //Fill the Lookup party information response 
+            logger.error("ACCEPTTRANSFERREQUEST failure: {}", e.getMessage(), e);
             transferResponse.setExecutionStatus(false);
             transferResponse.setSystemMessage(e.getMessage());
-        }        
-        return transferResponse;
-    }    
-    
-    public ParticipantResponse getParticipant(ParticipantRequest participantRequest){
-        //Verify if the vNext client has been connected    
-        if (!this.Loggined) {
-            logger.error("vNext Client not initialized yet." );
-            throw new IllegalStateException("vNext Client not initialized yet.");            
         }
+        return transferResponse;
+    }
+
+    public ParticipantResponse getParticipant(ParticipantRequest participantRequest){
+        checkAuthentication();
 
         LookupParticipantRequest lookupParticipantRequest = LookupParticipantRequest.newBuilder()
                 .setPartyId(participantRequest.getPartyId())
                 .setPartyIdType(participantRequest.getPartyIdType())
                 .setCurrencyCode(participantRequest.getCurrencyCode())
                 .build();
-        
+
         LookupParticipantResponse lookupParticipantResponse = LookupParticipantResponse.newBuilder().build();
         ParticipantResponse participantResponse = new ParticipantResponse();
-        
-        try {         
-            //Execute the Participant Query
-            lookupParticipantResponse = this.connectionToBlockingVnext.lookupParticipant(lookupParticipantRequest);            
-            //Fill the Participant Response 
+
+        try {
+            lookupParticipantResponse = this.connectionToBlockingVnext.lookupParticipant(lookupParticipantRequest);
             participantResponse.setFspId(lookupParticipantResponse.toString().split("\"")[1]);
             participantResponse.setPartyId(participantRequest.getPartyId());
             participantResponse.setExecutionStatus(true);
             participantResponse.setSystemMessage("success");
-        } 
+        }
         catch (Exception e) {
-            //Print the error message
-            logger.error("PARTICIPANTREQUEST failure: "+ e.getMessage());
-            //Fill the Lookup party information response 
+            logger.error("PARTICIPANTREQUEST failure: {}", e.getMessage(), e);
             participantResponse.setExecutionStatus(false);
             participantResponse.setSystemMessage(e.getMessage());
-        }        
+        }
         return participantResponse;
-        
+    }
+
+    // Getters para estado de autenticación
+    public boolean isAuthenticated() {
+        return Loggined && headerInterceptor.isAuthenticated();
+    }
+
+    public String getClientId() {
+        return clientId;
+    }
+
+    public String getSessionSecret() {
+        return sessionSecret;
+    }
+
+    // Método para reconexión
+    public boolean reconnect() {
+        try {
+            shutdown();
+            Thread.sleep(1000); // Pequeña pausa antes de reconectar
+            return start();
+        } catch (Exception e) {
+            logger.error("Reconnection failed", e);
+            return false;
+        }
     }
 }

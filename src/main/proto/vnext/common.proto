@@ -12,5 +12,16 @@ message ErrorResponse{
     string message = 2;
 }
 
+message StreamMessageError{
+    string message = 1;
+    string originalStreamMessageId = 2; // of message with error
+    string originalStreamMessageName = 3; // of message with error
+}
+
+message ExtensionField{
+    string key = 1;
+    string value = 2;
+}
+
 message Empty{}
 
