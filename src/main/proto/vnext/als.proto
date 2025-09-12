@@ -16,8 +16,15 @@ message LookupParticipantRequest{
     optional string currencyCode = 4;
 }
 
+//message LookupParticipantResponse{
+//    string fspId = 1;
+//}
 message LookupParticipantResponse{
-    string fspId = 1;
+    oneof responseType{
+        ErrorResponse error = 1;
+        Empty notFound = 2;
+        string fspId = 3;
+    }
 }
 
 
@@ -46,6 +53,8 @@ message LookupPartySuccessResponse{
     optional string lastName = 9;
     google.protobuf.Timestamp dateOfBirth = 10;
 
+    repeated ExtensionField extensions = 11;
+
 
 }
 
@@ -69,7 +78,7 @@ message ServerPartyInfoRequest{
     optional string partySubIdOrType = 5;
     optional string currencyCode = 6;
 
-    string pendingRequestId = 7;
+//    string pendingRequestId = 7;
 }
 
 message PartyAssociateRequest{
@@ -80,3 +89,18 @@ message PartyAssociateRequest{
     optional string currencyCode = 5;
 }
 
+message PartyAssociateResponse{
+    Empty response = 1;
+}
+
+message PartyDissociateRequest{
+    optional string fspId = 1;
+    string partyId = 2;
+    string partyIdType = 3;
+    optional string partySubIdOrType = 4;
+    optional string currencyCode = 5;
+}
+
+message PartyDissociateResponse{
+    Empty response = 1;
+}
