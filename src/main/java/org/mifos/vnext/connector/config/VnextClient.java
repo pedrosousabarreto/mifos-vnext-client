@@ -18,6 +18,7 @@
  */
 package org.mifos.vnext.connector.config;
 
+import io.grpc.netty.NettyChannelBuilder;
 import org.mifos.grpc.proto.vnext.InteropGrpcApiGrpc;
 import org.mifos.grpc.proto.vnext.LookupParticipantRequest;
 import org.mifos.grpc.proto.vnext.LookupParticipantResponse;
@@ -37,12 +38,9 @@ import org.mifos.grpc.proto.vnext.TransferRequest;
 import org.mifos.grpc.proto.vnext.TransferResponse;
 
 import io.grpc.Channel;
-import io.grpc.ClientInterceptor;
 import io.grpc.ClientInterceptors;
-import io.grpc.Grpc;
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
-import io.grpc.TlsChannelCredentials;
 import io.grpc.stub.StreamObserver;
 
 import java.io.File;
@@ -64,12 +62,10 @@ import org.mifos.vnext.connector.dto.TransferRequestDto;
 import org.mifos.vnext.connector.dto.TransferResponseDto;
 import org.mifos.vnext.connector.rest.client.ApacheFineract;
 import org.mifos.vnext.connector.rest.client.VNextClientMapper;
-import static org.mifos.vnext.connector.rest.client.VNextClientMapper.mapToAmount;
-import static org.mifos.vnext.connector.rest.client.VNextClientMapper.mapToParty;
-import static org.mifos.vnext.connector.rest.client.VNextClientMapper.mapToTransactionType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 public class VnextClient {
 
@@ -90,9 +86,15 @@ public class VnextClient {
     private final HeaderClientInterceptor headerInterceptor;
     private final String clientId;
     private String sessionSecret;
-    private final String clientCertPem;
     private final boolean mainClient;
     private final String pchVnextClientVersion;
+    private final String clientCertificate;
+    private final String clientPublicKeyPath;    
+    private final String clientPrivateKeyPath;    
+    private final String serverIntermediateCertificatePath;
+    private final String serverRootCertificatePath;
+    private final String serverFullCertPem;
+    
 
     // Constantes de timeout
     private static final int DEFAULT_GRPC_CONNECT_TIMEOUT_MS = 5000;
@@ -100,44 +102,65 @@ public class VnextClient {
     private static final int DEFAULT_GRPC_KEEPALIVE_TIMEOUT_MS = 5000;
 
     public VnextClient( String pchVnextFspId,
-                       String pchVnextClientName, String pchVnextClientVersion,
-                       String clientPrivateKeyPath, String caCertPath, String clientCertPath,
-                       boolean mainClient, String pchVnextServerDNS,
-                       int pchVnextServerPort, String pchVnextServerCertificate,
-                       int pchVnextKeepAliveTime, int pchVnextKeepAliveTimeout,
-                       boolean pchVnextKeepAliveTimeWithoutCalls, ApacheFineract apacheFineract) throws Exception {
+                        String pchVnextClientName, 
+                        String pchVnextClientVersion,
+                        String clientPrivateKeyPath, 
+                        String clientPublicKeyPath,
+                        String clientCertPath,
+                        String serverIntermediateCertificatePath, 
+                        String serverRootCertificatePath, 
+                        String fullCertificate,
+                        boolean mainClient, 
+                        String pchVnextServerDNS,
+                        int pchVnextServerPort,
+                        int pchVnextKeepAliveTime, int pchVnextKeepAliveTimeout,
+                        boolean pchVnextKeepAliveTimeWithoutCalls, ApacheFineract apacheFineract) throws Exception {
 
         // Almacenar parámetros
         this.pchVnextFspId = pchVnextFspId;
         this.pchVnextClientName = pchVnextClientName;
         this.pchVnextClientVersion = pchVnextClientVersion;
         this.apacheFineract = apacheFineract;
-        this.clientCertPem = loadClientCertPem(clientCertPath);
         this.mainClient = mainClient;
-
+        //Client certificate and keys
+        this.clientPublicKeyPath=clientPublicKeyPath;
+        this.clientPrivateKeyPath=clientPrivateKeyPath;
+        this.clientCertificate = loadClientCertPem(clientCertPath);
+        //Server certificates
+        this.serverIntermediateCertificatePath = serverIntermediateCertificatePath;
+        this.serverRootCertificatePath = serverRootCertificatePath;
+        this.serverFullCertPem=fullCertificate;
+        
         // Inicializar crypto helper
         logger.info("Initializing CryptoAndCertHelper with private key: {} and CA cert: {}",
-                clientPrivateKeyPath, caCertPath);
-        this.cryptoHelper = new CryptoAndCertHelper(clientPrivateKeyPath, caCertPath);
+                clientPrivateKeyPath, serverRootCertificatePath);
+        this.cryptoHelper = new CryptoAndCertHelper(clientPrivateKeyPath, serverRootCertificatePath);
 
         // Generar client ID único
         this.clientId = UUID.randomUUID().toString();
         logger.info("Generated client ID for authentication: {}", clientId);
 
-        // Preparar el canal TLS
-        TlsChannelCredentials.Builder tlsBuilder = TlsChannelCredentials.newBuilder();
-        tlsBuilder.trustManager(new File(pchVnextServerCertificate));
-
         // Usar valores por defecto si no se proporcionan
         int keepAliveTime = pchVnextKeepAliveTime > 0 ? pchVnextKeepAliveTime : DEFAULT_GRPC_KEEPALIVE_TIME_MS;
         int keepAliveTimeout = pchVnextKeepAliveTimeout > 0 ? pchVnextKeepAliveTimeout : DEFAULT_GRPC_KEEPALIVE_TIMEOUT_MS;
 
-        // Crear el canal gRPC
-        this.channel = Grpc.newChannelBuilderForAddress(pchVnextServerDNS, pchVnextServerPort, tlsBuilder.build())
-                .keepAliveTime(keepAliveTime, TimeUnit.MILLISECONDS)
-                .keepAliveTimeout(keepAliveTimeout, TimeUnit.MILLISECONDS)
-                .keepAliveWithoutCalls(pchVnextKeepAliveTimeWithoutCalls)
-                .build();
+        // Crear el canal gRPC con SslContext de Netty
+        try {
+
+
+            logger.info("Creating secure gRPC channel to {}:{}", pchVnextServerDNS, pchVnextServerPort);            
+            // Crear el canal
+            this.channel = NettyChannelBuilder.forAddress(pchVnextServerDNS, pchVnextServerPort)                    
+                    .keepAliveTime(keepAliveTime, TimeUnit.MILLISECONDS)
+                    .keepAliveTimeout(keepAliveTimeout, TimeUnit.MILLISECONDS)
+                    .keepAliveWithoutCalls(pchVnextKeepAliveTimeWithoutCalls)
+                    .build();
+
+            logger.info("gRPC channel created successfully");
+        } catch (Exception e) {
+            logger.error("Failed to create gRPC channel with Netty", e);
+            throw new RuntimeException("Failed to create gRPC channel: " + e.getMessage(), e);
+        }
 
         // Crear el interceptor y configurar clientId
         this.headerInterceptor = new HeaderClientInterceptor(pchVnextFspId);
@@ -162,7 +185,7 @@ public class VnextClient {
                 .setClientName(this.pchVnextClientName)
                 .setClientVersion(this.pchVnextClientVersion)
                 .setMainClient(this.mainClient)
-                .setClientPem(this.clientCertPem)
+                .setClientPem(this.clientCertificate)
                 .build();
 
         StreamFromClientMsg initialMessage = StreamFromClientMsg.newBuilder()
@@ -246,7 +269,11 @@ public class VnextClient {
     private void handleInitialResponse(StreamServerInitialResponse response) {
         try {
             logger.debug("Validating server signature and processing challenge");
-
+            logger.info("************************");
+            logger.info("this.clientId "+this.clientId);
+            logger.info("response.getSignedClientId() "+response.getSignedClientId());
+            logger.info("response.getPubKeyFingerprint() "+response.getPubKeyFingerprint());
+            logger.info("************************");
             // Validar firma del servidor
             boolean isValid = cryptoHelper.validateSignature(
                     this.clientId,
@@ -283,7 +310,6 @@ public class VnextClient {
 
         } catch (Exception e) {
             logger.error("Error handling initial response: {}", e.getMessage(), e);
-            // Intentar cerrar el stream limpiamente
             try {
                 if (streamFromClientMessageObserver != null) {
                     streamFromClientMessageObserver.onError(e);
@@ -338,8 +364,6 @@ public class VnextClient {
         channel.shutdown().awaitTermination(10, TimeUnit.SECONDS);
         logger.info("vNext Client Disconnected");
     }
-
-    // Métodos existentes de negocio (actualizados para verificar autenticación)
 
     private void sendMoneyTransfer(StreamToClientMsg streamToClientMsg) {
         checkAuthentication();
@@ -425,7 +449,6 @@ public class VnextClient {
         responseBuilder
                 .setSourceFspId(request.getDestinationFspId())
                 .setDestinationFspId(request.getSourceFspId())
-                //.setRequestId(request.getPendingRequestId())
                 .setResponse(successResponse);
 
         LookupPartyResponse response = responseBuilder.build();
@@ -554,7 +577,7 @@ public class VnextClient {
     public boolean reconnect() {
         try {
             shutdown();
-            Thread.sleep(1000); // Pequeña pausa antes de reconectar
+            Thread.sleep(1000);
             return start();
         } catch (Exception e) {
             logger.error("Reconnection failed", e);

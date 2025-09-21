@@ -48,14 +48,20 @@ public class VnextClientConfig {
     @Value("${pch.vnext.server.dns}")
     private String pchVnextServerDNS;
 
-    @Value("${pch.vnext.server.certificate}")
-    private String pchVnextServerCertificate;
-
     @Value("${pch.vnext.client.private.key}") // Nueva propiedad
     private String pchVnextClientPrivateKey;
 
-    @Value("${pch.vnext.ca.certificate}") // Nueva propiedad
-    private String pchVnextCaCertificate;
+    @Value("${pch.vnext.client.public.key}") // Nueva propiedad
+    private String pchVnextClientPublicKey;
+
+    @Value("${pch.vnext.server.full.certificate}") // Nueva propiedad
+    private String pchVnextServerFullChainCombined;
+
+    @Value("${pch.vnext.server.intermediate.certificate}") // Nueva propiedad
+    private String pchVnextServerIntermediateCertificate;
+
+    @Value("${pch.vnext.server.root.certificate}")
+    private String pchVnextServerRootCertificate;
 
     @Value("${pch.vnext.client.certificate}") // Nueva propiedad
     private String pchVnextClientCertificate;
@@ -91,12 +97,14 @@ public class VnextClientConfig {
                     pchVnextClientName,
                     pchVnextClientVersion,
                     pchVnextClientPrivateKey,
-                    pchVnextCaCertificate,
+                    pchVnextClientPublicKey,
                     pchVnextClientCertificate,
+                    pchVnextServerIntermediateCertificate,
+                    pchVnextServerRootCertificate,
+                    pchVnextServerFullChainCombined,                    
                     pchVnextMainClient,
                     pchVnextServerDNS,
                     pchVnextServerPort,
-                    pchVnextServerCertificate,
                     pchVnextKeepAliveTime,
                     pchVnextKeepAliveTimeout,
                     pchVnextKeepAliveTimeWithoutCalls,
@@ -127,14 +135,12 @@ public class VnextClientConfig {
         if (pchVnextServerDNS == null || pchVnextServerDNS.trim().isEmpty()) {
             throw new IllegalArgumentException("pch.vnext.server.dns is required");
         }
-        if (pchVnextServerCertificate == null || pchVnextServerCertificate.trim().isEmpty()) {
-            throw new IllegalArgumentException("pch.vnext.server.certificate is required");
-        }
+
         if (pchVnextClientPrivateKey == null || pchVnextClientPrivateKey.trim().isEmpty()) {
             throw new IllegalArgumentException("pch.vnext.client.private.key is required for authentication");
         }
-        if (pchVnextCaCertificate == null || pchVnextCaCertificate.trim().isEmpty()) {
-            throw new IllegalArgumentException("pch.vnext.ca.certificate is required for authentication");
+        if (pchVnextServerIntermediateCertificate == null || pchVnextServerIntermediateCertificate.trim().isEmpty()) {
+            throw new IllegalArgumentException("pch.vnext.server.intermediate.certificate is required for authentication");
         }
         if (pchVnextClientCertificate == null || pchVnextClientCertificate.trim().isEmpty()) {
             throw new IllegalArgumentException("pch.vnext.client.certificate is required for authentication");
