@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.5.6</version>
+		<version>3.5.5</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>org.mifos</groupId>
@@ -30,7 +30,7 @@
 		<java.version>17</java.version>
 		<grpc.version>1.69.0</grpc.version>
 		<protobuf-java.version>3.25.5</protobuf-java.version>
-		<spring-grpc.version>0.11.0</spring-grpc.version>
+		<spring-grpc.version>0.10.0</spring-grpc.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -40,6 +40,12 @@
 		<dependency>
 			<groupId>org.springframework.grpc</groupId>
 			<artifactId>spring-grpc-spring-boot-starter</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>me.paulschwarz</groupId>
+			<artifactId>spring-dotenv</artifactId>
+			<version>4.0.0</version>
 		</dependency>
 
 		<dependency>
@@ -60,6 +66,12 @@
                         <groupId>org.projectlombok</groupId>
                         <artifactId>lombok</artifactId>
                         <optional>true</optional>
+                </dependency>
+                <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on -->
+                <dependency>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                    <version>1.82</version>
                 </dependency>
 	</dependencies>
 	<dependencyManagement>
