@@ -132,9 +132,10 @@ public class VnextClient {
         this.serverFullCertPem=fullCertificate;
         
         // Inicializar crypto helper
-        logger.info("Initializing CryptoAndCertHelper with private key: {} and CA cert: {}",
-                clientPrivateKeyPath, serverRootCertificatePath);
-        this.cryptoHelper = new CryptoAndCertHelper(clientPrivateKeyPath, serverRootCertificatePath);
+        logger.info("Initializing CryptoAndCertHelper ");
+        logger.info("Client Private Key: {} ", clientPrivateKeyPath);
+        logger.info("Server Intermediate Certificate: {}", serverIntermediateCertificatePath);
+        this.cryptoHelper = new CryptoAndCertHelper(clientPrivateKeyPath, serverIntermediateCertificatePath);
 
         // Generar client ID único
         this.clientId = UUID.randomUUID().toString();
@@ -282,16 +283,17 @@ public class VnextClient {
             );
 
             if (!isValid) {
-                logger.error("Invalid server signature received. Expected fingerprint: {}, Received: {}",
-                        cryptoHelper.getCaPublicKeyFingerprint(), response.getPubKeyFingerprint());
+                logger.error("Invalid server signature received.");
+                logger.error("Expected fingerprint: {} ", cryptoHelper.getServerIntermediatePublicKeyFingerprint());
+                logger.error("Received: {} ", response.getPubKeyFingerprint());
                 throw new SecurityException("Invalid server signature");
             }
 
-            logger.debug("Server signature validated successfully");
+            logger.info("Server signature validated successfully");
 
             // Firmar el challenge nonce
             String signedNonce = cryptoHelper.signString(response.getChallengeNonce());
-            String clientPubKeyFingerprint = cryptoHelper.getCaPublicKeyFingerprint();
+            String clientPubKeyFingerprint = cryptoHelper.getServerIntermediatePublicKeyFingerprint();
 
             logger.debug("Challenge nonce signed successfully");
 

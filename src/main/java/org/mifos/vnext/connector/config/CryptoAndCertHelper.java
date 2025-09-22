@@ -32,6 +32,8 @@ import java.security.*;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.DEROctetString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,22 +43,21 @@ public class CryptoAndCertHelper {
     
     private static final Logger logger = LoggerFactory.getLogger(CryptoAndCertHelper.class);
     
-    private final PrivateKey privateKey;
-    private final X509Certificate caIntermediateCert;
-    private String caPublicKeyFingerprint;
+    private final PrivateKey clientPrivateKey;
+    private final X509Certificate serverIntermediateCertificate;
+    private String serverIntermediatePublicKeyFingerprint;
 
-    public CryptoAndCertHelper(String clientPrivateKeyFilePath, String caCertFilePath) 
+    public CryptoAndCertHelper(String clientPrivateKeyFilePath, String serverIntermediateCertificatePath) 
             throws Exception {
         logger.info("clientPrivateKeyFilePath "+clientPrivateKeyFilePath);
-        logger.info("caCertFilePath "+caCertFilePath);
+        logger.info("serverIntermediateCertificatePath "+serverIntermediateCertificatePath);
         // Load private key (PEM -> PrivateKey)
-        this.privateKey = PemUtils.loadPrivateKey(clientPrivateKeyFilePath);
-      
+        this.clientPrivateKey = PemUtils.loadPrivateKey(clientPrivateKeyFilePath);
 
         // Load CA intermediate certificate
-        try (FileInputStream fis = new FileInputStream(caCertFilePath)) {
+        try (FileInputStream fis = new FileInputStream(serverIntermediateCertificatePath)) {
             CertificateFactory factory = CertificateFactory.getInstance("X.509");
-            this.caIntermediateCert = (X509Certificate) factory.generateCertificate(fis);
+            this.serverIntermediateCertificate = (X509Certificate) factory.generateCertificate(fis);
         }
     }
 
@@ -64,13 +65,13 @@ public class CryptoAndCertHelper {
      * Signs a string using the loaded private key (SHA1withRSA).
      */
     public String signString(String stringToSign) throws Exception {
-        if (privateKey == null) {
+        if (clientPrivateKey == null) {
             throw new IllegalStateException("Could not find private key");
         }
 
         try {
             Signature signature = Signature.getInstance("SHA1withRSA");
-            signature.initSign(privateKey);
+            signature.initSign(clientPrivateKey);
             signature.update(stringToSign.getBytes(StandardCharsets.UTF_8));
             byte[] signedBytes = signature.sign();
 
@@ -81,42 +82,61 @@ public class CryptoAndCertHelper {
     }
 
     /**
-     * Validates a signature with CA public key + fingerprint.
+     * Validates a signature with Server Intermediate CA public key + fingerprint.
      */
     public boolean validateSignature(String originalString, String base64Signature, String pubKeyFingerprint) {
         try {
-            PublicKey publicKey = caIntermediateCert.getPublicKey();
+            PublicKey serverIntermediatePublicKey = serverIntermediateCertificate.getPublicKey();
             
             logger.info("originalString "+originalString);
             logger.info("base64Signature "+base64Signature);
             logger.info("pubKeyFingerprint "+pubKeyFingerprint);
 
-            // Calculate fingerprint (SHA-1 over encoded public key, hex)
-            MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-            byte[] fingerprintBytes = sha1.digest(publicKey.getEncoded());
-            StringBuilder sb = new StringBuilder();
-            for (byte b : fingerprintBytes) {
-                sb.append(String.format("%02x", b));
-            }
-            String calculatedFingerprint = sb.toString();
+            String calculatedFingerprint = getPublicKeyFingerprint(serverIntermediatePublicKey);
+            logger.info("Server Intermediate Public Key : " + calculatedFingerprint);
             
-            this.caPublicKeyFingerprint = calculatedFingerprint;
-            logger.info("this.caPublicKeyFingerprint "+this.caPublicKeyFingerprint);
+            this.serverIntermediatePublicKeyFingerprint = calculatedFingerprint;
+            logger.info("this.serverIntermediatePublicKeyFingerprint "+this.serverIntermediatePublicKeyFingerprint);
             
-            if (!calculatedFingerprint.equals(pubKeyFingerprint)) {
+            if (!calculatedFingerprint.equalsIgnoreCase(pubKeyFingerprint)) {
                 return false;
             }
 
             // Verify signature
             Signature signature = Signature.getInstance("SHA1withRSA");
-            signature.initVerify(publicKey);            
+            signature.initVerify(serverIntermediatePublicKey);            
             signature.update(originalString.getBytes(StandardCharsets.UTF_8));
 
             byte[] decodedSignature = Base64.getDecoder().decode(base64Signature);
             return signature.verify(decodedSignature);
 
-        } catch (Exception e) {
+        } 
+        catch (Exception e) {
+            logger.error("Exception "+e.getMessage());
             return false;
         }
+    }
+    
+    public String getPublicKeyFingerprint(PublicKey publicKey) throws Exception {
+        byte[] skiExtension = serverIntermediateCertificate.getExtensionValue("2.5.29.14");
+        byte[] skiBytes = null;
+        if (skiExtension != null) {
+            try (ASN1InputStream ais = new ASN1InputStream(skiExtension)) {
+                DEROctetString oct = (DEROctetString) ais.readObject();
+                try (ASN1InputStream ais2 = new ASN1InputStream(oct.getOctets())) {
+                    DEROctetString skiOctet = (DEROctetString) ais2.readObject();
+                    skiBytes = skiOctet.getOctets();
+                }
+            }
+        }
+        StringBuilder hexSki = new StringBuilder();
+        if (skiBytes != null) {
+            for (byte b : skiBytes) {
+                hexSki.append(String.format("%02x", b));
+            }
+        }
+        String subjectKeyIdentifier = hexSki.toString();
+        logger.debug("Subject Key Identifier: " + subjectKeyIdentifier);        
+        return subjectKeyIdentifier;
     }
 }
