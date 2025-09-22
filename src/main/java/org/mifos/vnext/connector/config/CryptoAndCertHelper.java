@@ -39,6 +39,7 @@ import org.bouncycastle.crypto.Signer;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.crypto.util.PublicKeyFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.mifos.grpc.proto.vnext.StreamServerInitialResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,13 +91,13 @@ public class CryptoAndCertHelper {
     /**
      * Validates a signature with Server Intermediate CA public key + fingerprint.
      */
-    public boolean validateSignature(String originalString, String base64Signature, String pubKeyFingerprint) {
+    public boolean validateSignature(String originalString, StreamServerInitialResponse response) {
         try {
             PublicKey serverIntermediatePublicKey = serverIntermediateCertificate.getPublicKey();
             
             logger.info("originalString "+originalString);
-            logger.info("base64Signature "+base64Signature);
-            logger.info("pubKeyFingerprint "+pubKeyFingerprint);
+            logger.info("base64Signature "+response.getSignedClientId());
+            logger.info("pubKeyFingerprint "+response.getPubKeyFingerprint());
 
             String calculatedFingerprint = getPublicKeyFingerprint(serverIntermediatePublicKey);
             logger.info("Server Intermediate Public Key : " + calculatedFingerprint);
@@ -104,20 +105,21 @@ public class CryptoAndCertHelper {
             this.serverIntermediatePublicKeyFingerprint = calculatedFingerprint;
             logger.debug("this.serverIntermediatePublicKeyFingerprint "+this.serverIntermediatePublicKeyFingerprint);
             
-            if (!calculatedFingerprint.equalsIgnoreCase(pubKeyFingerprint)) {
+            if (!calculatedFingerprint.equalsIgnoreCase(response.getPubKeyFingerprint())) {
                 return false;
             }
             
-            
-            
+            return verifySignatureNative(response.getPubKeyFingerprint().getBytes(StandardCharsets.UTF_8),response.getPubKeyFingerprintBytes().toByteArray(),serverIntermediatePublicKey);
                         
+            /*
             Security.addProvider(new BouncyCastleProvider());
             return verifySignature(
                     originalString.getBytes(StandardCharsets.UTF_8), 
                     Base64.getDecoder().decode(base64Signature.getBytes(StandardCharsets.UTF_8)), 
                     serverIntermediatePublicKey, 
                     "SHA-256WITHRSA");
-               /*
+            */
+            /*
             for (Provider provider : Security.getProviders()) {
                 Set<Provider.Service> services = provider.getServices();
                 for (Provider.Service service : services) {
@@ -125,7 +127,8 @@ public class CryptoAndCertHelper {
                         logger.info("  " + service.getAlgorithm() + " (from " + provider.getName() + ")");
                     }
                 }
-            }*/
+            }
+            */
             /*
             // Verify signature
             Signature signature = Signature.getInstance("SHA256withRSA");
@@ -166,6 +169,23 @@ public class CryptoAndCertHelper {
         String subjectKeyIdentifier = hexSki.toString();
         logger.debug("Subject Key Identifier: " + subjectKeyIdentifier);        
         return subjectKeyIdentifier;
+    }
+    
+    public static boolean verifySignatureNative(byte[] signedData, byte[] signatureBytes, PublicKey publicKey1) throws Exception {
+        // 1. Obtain the Public Key from the CA Certificate
+        PublicKey publicKey = publicKey1;
+
+        // 2. Initialize the Signature Object
+        Signature signature = Signature.getInstance("SHA256withRSA"); // Use the correct algorithm
+        signature.initVerify(publicKey);
+
+        // 3. Provide the Signed Data
+        signature.update(signedData);
+
+        // 4. Verify the Signature
+        logger.info("signature.verify(signatureBytes) "+signature.verify(signatureBytes));
+        
+        return signature.verify(signatureBytes);
     }
     
     public static boolean verifySignature(byte[] data, byte[] signature, PublicKey publicKey, String algorithm) {
