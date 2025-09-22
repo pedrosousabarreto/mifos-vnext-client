@@ -28,12 +28,17 @@ import lombok.Setter;
 
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.Security;
+
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.crypto.Signer;
+import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
+import org.bouncycastle.crypto.util.PublicKeyFactory;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +64,7 @@ public class CryptoAndCertHelper {
             CertificateFactory factory = CertificateFactory.getInstance("X.509");
             this.serverIntermediateCertificate = (X509Certificate) factory.generateCertificate(fis);
         }
+        
     }
 
     /**
@@ -96,22 +102,44 @@ public class CryptoAndCertHelper {
             logger.info("Server Intermediate Public Key : " + calculatedFingerprint);
             
             this.serverIntermediatePublicKeyFingerprint = calculatedFingerprint;
-            logger.info("this.serverIntermediatePublicKeyFingerprint "+this.serverIntermediatePublicKeyFingerprint);
+            logger.debug("this.serverIntermediatePublicKeyFingerprint "+this.serverIntermediatePublicKeyFingerprint);
             
             if (!calculatedFingerprint.equalsIgnoreCase(pubKeyFingerprint)) {
                 return false;
             }
-
+            
+            
+            
+                        
+            Security.addProvider(new BouncyCastleProvider());
+            return verifySignature(
+                    originalString.getBytes(StandardCharsets.UTF_8), 
+                    Base64.getDecoder().decode(base64Signature.getBytes(StandardCharsets.UTF_8)), 
+                    serverIntermediatePublicKey, 
+                    "SHA-256WITHRSA");
+               /*
+            for (Provider provider : Security.getProviders()) {
+                Set<Provider.Service> services = provider.getServices();
+                for (Provider.Service service : services) {
+                    if ("Signature".equals(service.getType())) {
+                        logger.info("  " + service.getAlgorithm() + " (from " + provider.getName() + ")");
+                    }
+                }
+            }*/
+            /*
             // Verify signature
-            Signature signature = Signature.getInstance("SHA1withRSA");
+            Signature signature = Signature.getInstance("SHA256withRSA");
             signature.initVerify(serverIntermediatePublicKey);            
             signature.update(originalString.getBytes(StandardCharsets.UTF_8));
-
-            byte[] decodedSignature = Base64.getDecoder().decode(base64Signature);
-            return signature.verify(decodedSignature);
+            
+            byte[] decodedSignature = Base64.getDecoder().decode(base64Signature.getBytes(StandardCharsets.UTF_8));
+            
+            return signature.verify(decodedSignature);*/
+            
 
         } 
         catch (Exception e) {
+            e.printStackTrace();
             logger.error("Exception "+e.getMessage());
             return false;
         }
@@ -139,4 +167,28 @@ public class CryptoAndCertHelper {
         logger.debug("Subject Key Identifier: " + subjectKeyIdentifier);        
         return subjectKeyIdentifier;
     }
+    
+    public static boolean verifySignature(byte[] data, byte[] signature, PublicKey publicKey, String algorithm) {
+        try {
+            // Convert Java's PublicKey to Bouncy Castle's AsymmetricKeyParameter
+            AsymmetricKeyParameter publicKeyParam = PublicKeyFactory.createKey(publicKey.getEncoded());
+
+            // Get the appropriate Bouncy Castle signer
+            Signer signer = SignerUtilities.getSigner(algorithm);
+
+            // Initialize for verification
+            signer.init(false, publicKeyParam);
+
+            // Update with the original data
+            signer.update(data, 0, data.length);
+
+            // Verify the signature
+            return signer.verifySignature(signature);
+        }
+            catch (Exception e){
+                e.printStackTrace();
+                return false;
+        }
+    }
+    
 }
