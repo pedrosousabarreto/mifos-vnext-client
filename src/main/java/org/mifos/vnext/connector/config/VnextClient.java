@@ -278,10 +278,9 @@ public class VnextClient {
             // Validar firma del servidor
             boolean isValid = cryptoHelper.validateSignature(
                     this.clientId,
-                    response.getSignedClientId(),
-                    response.getPubKeyFingerprint()
+                    response
             );
-
+           
             if (!isValid) {
                 logger.error("Invalid server signature received.");
                 logger.error("Expected fingerprint: {} ", cryptoHelper.getServerIntermediatePublicKeyFingerprint());
