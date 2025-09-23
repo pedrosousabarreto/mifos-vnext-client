@@ -39,13 +39,18 @@ import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.DigestInfo;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.DigestAlgorithmIdentifierFinder;
 import org.mifos.grpc.proto.vnext.StreamServerInitialResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,6 +113,7 @@ public class CryptoAndCertHelper {
             logger.info("originalString "+originalString);
             logger.info("base64Signature "+response.getSignedClientId());
             logger.info("pubKeyFingerprint "+response.getPubKeyFingerprint());
+            
 
             String calculatedFingerprint = getPublicKeyFingerprint(serverIntermediatePublicKey);
             logger.info("Calculated Fingerprint Server Intermediate Public Key : " + calculatedFingerprint);
@@ -117,8 +123,25 @@ public class CryptoAndCertHelper {
             if (!calculatedFingerprint.equalsIgnoreCase(response.getPubKeyFingerprint())) {
                 return false;
             }
-                     
-            byte[] signatureBytes = Base64.getDecoder().decode(response.getSignedClientId());
+            
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.DECRYPT_MODE, serverIntermediatePublicKey);
+            byte[] decryptedMessageHash = cipher.doFinal(response.getSignedClientIdBytes().toString().getBytes(StandardCharsets.UTF_8));
+            
+            byte[] messageBytes = originalString.getBytes(StandardCharsets.UTF_8);
+
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] newMessageHash = md.digest(messageBytes);
+            
+            DigestAlgorithmIdentifierFinder hashAlgorithmFinder = new DefaultDigestAlgorithmIdentifierFinder();
+            AlgorithmIdentifier hashingAlgorithmIdentifier = hashAlgorithmFinder.find("SHA-256");
+            DigestInfo digestInfo = new DigestInfo(hashingAlgorithmIdentifier, newMessageHash);
+            byte[] hashToEncrypt = digestInfo.getEncoded();
+            
+            boolean isCorrect = Arrays.equals(decryptedMessageHash, hashToEncrypt);
+            logger.info("isCorrect "+isCorrect);
+            /*
+            byte[] signatureBytes = Base64.getDecoder().decode(response.getSignedClientId().getBytes(StandardCharsets.UTF_8));
              
             // Create SHA-1 digest instance
             MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -132,10 +155,12 @@ public class CryptoAndCertHelper {
             sig.verify(signatureBytes);
             
             logger.info("Signature verified "+sig.verify(signatureBytes));
+            */
                          
-            return sig.verify(signatureBytes);
+            return false;
         } 
         catch (Exception e) {
+            e.printStackTrace();
             logger.error("Exception "+e.getMessage());
             return false;
         }

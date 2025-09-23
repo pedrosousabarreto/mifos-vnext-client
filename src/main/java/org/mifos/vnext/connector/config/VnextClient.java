@@ -274,6 +274,7 @@ public class VnextClient {
             logger.debug("this.clientId "+this.clientId);
             logger.debug("response.getSignedClientId() "+response.getSignedClientId());
             logger.debug("response.getPubKeyFingerprint() "+response.getPubKeyFingerprint());
+            
             logger.debug("************************");
             // Validar firma del servidor
             boolean isValid = cryptoHelper.validateSignature(
