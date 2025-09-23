@@ -110,33 +110,28 @@ public class CryptoAndCertHelper {
             logger.info("pubKeyFingerprint "+response.getPubKeyFingerprint());
 
             String calculatedFingerprint = getPublicKeyFingerprint(serverIntermediatePublicKey);
-            logger.info("Server Intermediate Public Key : " + calculatedFingerprint);
+            logger.info("Calculated Fingerprint Server Intermediate Public Key : " + calculatedFingerprint);
             
             this.serverIntermediatePublicKeyFingerprint = calculatedFingerprint;
-            logger.debug("this.serverIntermediatePublicKeyFingerprint "+this.serverIntermediatePublicKeyFingerprint);
                     
             if (!calculatedFingerprint.equalsIgnoreCase(response.getPubKeyFingerprint())) {
-                logger.info("CalculatedFingerprint mismatch vs response.getPubKeyFingerprint()");
                 return false;
             }
-            
-            String cleanSig = response.getSignedClientId().replace("-----BEGIN SIGNATURE-----", "").replace("-----END SIGNATURE-----", "").replaceAll("\\s", "");
-            logger.info("clean response.getSignedClientId() "+response.getSignedClientId());
-            byte[] signatureBytes = Base64.getDecoder().decode(cleanSig);
-            logger.info("Signature length in bytes: " + signatureBytes.length);
-            //logger.info("signatureBytes "+signatureBytes);
-            logger.info("serverIntermediatePublicKey.getAlgorithm() "+serverIntermediatePublicKey.getAlgorithm());
-            logger.info("serverIntermediatePublicKey.getFormat() "+serverIntermediatePublicKey.getFormat());
-            logger.info("serverIntermediatePublicKey.toString() "+serverIntermediatePublicKey.toString());
+                     
+            byte[] signatureBytes = Base64.getDecoder().decode(response.getSignedClientId());
+             
+            // Create SHA-1 digest instance
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+
+            // Update digest with the input string (UTF-8 encoded)
+            byte[] digest = md.digest(originalString.getBytes(StandardCharsets.UTF_8));
             
             Signature sig = Signature.getInstance("SHA1withRSA");            
             sig.initVerify(serverIntermediatePublicKey);
-            sig.update(originalString.getBytes(StandardCharsets.UTF_8));
+            sig.update(digest);
             sig.verify(signatureBytes);
             
-            logger.info("sig.verify(signatureBytes) "+sig.verify(signatureBytes));
-             
-            encryptDecrypt();
+            logger.info("Signature verified "+sig.verify(signatureBytes));
                          
             return false;
         } 
@@ -145,6 +140,17 @@ public class CryptoAndCertHelper {
             logger.error("Exception "+e.getMessage());
             return false;
         }
+    }
+    
+    private static final char[] hex = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+    private static String byteArray2Hex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (final byte b : bytes) {
+            sb.append(hex[(b & 0xF0) >> 4]);
+            sb.append(hex[b & 0x0F]);
+        }
+        logger.info("byteArray2Hex "+sb.toString());
+        return sb.toString();
     }
            
     public String getPublicKeyFingerprint(PublicKey publicKey) throws Exception {

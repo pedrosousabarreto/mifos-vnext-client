@@ -270,11 +270,11 @@ public class VnextClient {
     private void handleInitialResponse(StreamServerInitialResponse response) {
         try {
             logger.debug("Validating server signature and processing challenge");
-            logger.info("************************");
-            logger.info("this.clientId "+this.clientId);
-            logger.info("response.getSignedClientId() "+response.getSignedClientId());
-            logger.info("response.getPubKeyFingerprint() "+response.getPubKeyFingerprint());
-            logger.info("************************");
+            logger.debug("************************");
+            logger.debug("this.clientId "+this.clientId);
+            logger.debug("response.getSignedClientId() "+response.getSignedClientId());
+            logger.debug("response.getPubKeyFingerprint() "+response.getPubKeyFingerprint());
+            logger.debug("************************");
             // Validar firma del servidor
             boolean isValid = cryptoHelper.validateSignature(
                     this.clientId,
