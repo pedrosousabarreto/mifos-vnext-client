@@ -143,14 +143,16 @@ public class CryptoAndCertHelper {
             */
             
             byte[] signatureBytes = Base64.getDecoder().decode(response.getSignedClientId().getBytes(StandardCharsets.UTF_8));
+            
+            //decryptStringWithPrivateKeyRSA(response.getSignedClientId(),"/home/fintecheando/dev/fintecheando/vnext/llaves/mifos-bank-1_private.pem");
              
             // Create SHA-1 digest instance
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
 
             // Update digest with the input string (UTF-8 encoded)
             byte[] digest = md.digest(originalString.getBytes(StandardCharsets.UTF_8));
             
-            Signature sig = Signature.getInstance("SHA256withRSA");            
+            Signature sig = Signature.getInstance("SHA1withRSA");            
             sig.initVerify(serverIntermediatePublicKey);
             sig.update(digest);
             sig.verify(signatureBytes);
@@ -227,6 +229,15 @@ public class CryptoAndCertHelper {
         cipher.init(Cipher.DECRYPT_MODE, pkey,
                 new OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT));
         String dec = new String(cipher.doFinal(Base64.getDecoder().decode(s)), "UTF-8");
+        return dec;
+    }
+    
+    public static String decryptStringWithPrivateKeyRSA(String s, String keyFilename)  throws Exception {
+        Cipher cipher = Cipher.getInstance("RSA");
+        PrivateKey pkey = readPrivateKeyFromPem(keyFilename);
+        cipher.init(Cipher.DECRYPT_MODE, pkey);
+        String dec = new String(cipher.doFinal(Base64.getDecoder().decode(s)), "UTF-8");
+ 
         return dec;
     }
     /*
