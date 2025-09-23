@@ -31,6 +31,7 @@ import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
 import java.security.Security;
 
 import java.security.cert.CertificateFactory;
@@ -55,7 +56,7 @@ public class CryptoAndCertHelper {
     
     private static final Logger logger = LoggerFactory.getLogger(CryptoAndCertHelper.class);
     
-    private final PrivateKey clientPrivateKey;
+    private final PrivateKey clientPrivateKey;    
     private final X509Certificate serverIntermediateCertificate;
     private String serverIntermediatePublicKeyFingerprint;
 
@@ -65,7 +66,7 @@ public class CryptoAndCertHelper {
         logger.info("serverIntermediateCertificatePath "+serverIntermediateCertificatePath);
         // Load private key (PEM -> PrivateKey)
         this.clientPrivateKey = PemUtils.loadPrivateKey(clientPrivateKeyFilePath);
-
+        
         // Load CA intermediate certificate
         try (FileInputStream fis = new FileInputStream(serverIntermediateCertificatePath)) {
             CertificateFactory factory = CertificateFactory.getInstance("X.509");
@@ -113,11 +114,28 @@ public class CryptoAndCertHelper {
             
             this.serverIntermediatePublicKeyFingerprint = calculatedFingerprint;
             logger.debug("this.serverIntermediatePublicKeyFingerprint "+this.serverIntermediatePublicKeyFingerprint);
-            
+                    
             if (!calculatedFingerprint.equalsIgnoreCase(response.getPubKeyFingerprint())) {
+                logger.info("CalculatedFingerprint mismatch vs response.getPubKeyFingerprint()");
                 return false;
             }
             
+            String cleanSig = response.getSignedClientId().replace("-----BEGIN SIGNATURE-----", "").replace("-----END SIGNATURE-----", "").replaceAll("\\s", "");
+            logger.info("clean response.getSignedClientId() "+response.getSignedClientId());
+            byte[] signatureBytes = Base64.getDecoder().decode(cleanSig);
+            logger.info("Signature length in bytes: " + signatureBytes.length);
+            //logger.info("signatureBytes "+signatureBytes);
+            logger.info("serverIntermediatePublicKey.getAlgorithm() "+serverIntermediatePublicKey.getAlgorithm());
+            logger.info("serverIntermediatePublicKey.getFormat() "+serverIntermediatePublicKey.getFormat());
+            logger.info("serverIntermediatePublicKey.toString() "+serverIntermediatePublicKey.toString());
+            
+            Signature sig = Signature.getInstance("SHA1withRSA");            
+            sig.initVerify(serverIntermediatePublicKey);
+            sig.update(originalString.getBytes(StandardCharsets.UTF_8));
+            sig.verify(signatureBytes);
+            
+            logger.info("sig.verify(signatureBytes) "+sig.verify(signatureBytes));
+             
             encryptDecrypt();
                          
             return false;
@@ -128,10 +146,12 @@ public class CryptoAndCertHelper {
             return false;
         }
     }
-    
+           
     public String getPublicKeyFingerprint(PublicKey publicKey) throws Exception {
+        
         byte[] skiExtension = serverIntermediateCertificate.getExtensionValue("2.5.29.14");
         byte[] skiBytes = null;
+        
         if (skiExtension != null) {
             try (ASN1InputStream ais = new ASN1InputStream(skiExtension)) {
                 DEROctetString oct = (DEROctetString) ais.readObject();
@@ -141,12 +161,15 @@ public class CryptoAndCertHelper {
                 }
             }
         }
+        
         StringBuilder hexSki = new StringBuilder();
+        
         if (skiBytes != null) {
             for (byte b : skiBytes) {
                 hexSki.append(String.format("%02x", b));
             }
         }
+        
         String subjectKeyIdentifier = hexSki.toString();
         logger.debug("Subject Key Identifier: " + subjectKeyIdentifier);        
         return subjectKeyIdentifier;

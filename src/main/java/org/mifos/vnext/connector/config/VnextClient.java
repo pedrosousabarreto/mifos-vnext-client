@@ -279,6 +279,7 @@ public class VnextClient {
             boolean isValid = cryptoHelper.validateSignature(
                     this.clientId,
                     response
+                    
             );
            
             if (!isValid) {
