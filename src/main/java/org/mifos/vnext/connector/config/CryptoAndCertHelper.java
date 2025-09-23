@@ -123,7 +123,7 @@ public class CryptoAndCertHelper {
             if (!calculatedFingerprint.equalsIgnoreCase(response.getPubKeyFingerprint())) {
                 return false;
             }
-            
+            /*
             Cipher cipher = Cipher.getInstance("RSA");
             cipher.init(Cipher.DECRYPT_MODE, serverIntermediatePublicKey);
             byte[] decryptedMessageHash = cipher.doFinal(response.getSignedClientIdBytes().toString().getBytes(StandardCharsets.UTF_8));
@@ -140,22 +140,23 @@ public class CryptoAndCertHelper {
             
             boolean isCorrect = Arrays.equals(decryptedMessageHash, hashToEncrypt);
             logger.info("isCorrect "+isCorrect);
-            /*
+            */
+            
             byte[] signatureBytes = Base64.getDecoder().decode(response.getSignedClientId().getBytes(StandardCharsets.UTF_8));
              
             // Create SHA-1 digest instance
-            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
 
             // Update digest with the input string (UTF-8 encoded)
             byte[] digest = md.digest(originalString.getBytes(StandardCharsets.UTF_8));
             
-            Signature sig = Signature.getInstance("SHA1withRSA");            
+            Signature sig = Signature.getInstance("SHA256withRSA");            
             sig.initVerify(serverIntermediatePublicKey);
             sig.update(digest);
             sig.verify(signatureBytes);
             
             logger.info("Signature verified "+sig.verify(signatureBytes));
-            */
+            
                          
             return false;
         } 
