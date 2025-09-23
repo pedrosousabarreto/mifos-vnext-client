@@ -133,10 +133,9 @@ public class CryptoAndCertHelper {
             
             logger.info("Signature verified "+sig.verify(signatureBytes));
                          
-            return false;
+            return sig.verify(signatureBytes);
         } 
         catch (Exception e) {
-            e.printStackTrace();
             logger.error("Exception "+e.getMessage());
             return false;
         }
