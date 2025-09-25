@@ -18,6 +18,7 @@
  */
 package org.mifos.vnext.connector.config;
 
+import com.google.protobuf.ByteString;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -39,18 +40,13 @@ import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Arrays;
 import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
-import org.bouncycastle.asn1.x509.DigestInfo;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
-import org.bouncycastle.operator.DigestAlgorithmIdentifierFinder;
 import org.mifos.grpc.proto.vnext.StreamServerInitialResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,9 +59,10 @@ public class CryptoAndCertHelper {
     
     private final PrivateKey clientPrivateKey;    
     private final X509Certificate serverIntermediateCertificate;
+    private final X509Certificate clientSignedCertificate;
     private String serverIntermediatePublicKeyFingerprint;
 
-    public CryptoAndCertHelper(String clientPrivateKeyFilePath, String serverIntermediateCertificatePath) 
+    public CryptoAndCertHelper(String clientPrivateKeyFilePath, String serverIntermediateCertificatePath, String clientSignedCertificatePath) 
             throws Exception {
         logger.info("clientPrivateKeyFilePath "+clientPrivateKeyFilePath);
         logger.info("serverIntermediateCertificatePath "+serverIntermediateCertificatePath);
@@ -76,6 +73,12 @@ public class CryptoAndCertHelper {
         try (FileInputStream fis = new FileInputStream(serverIntermediateCertificatePath)) {
             CertificateFactory factory = CertificateFactory.getInstance("X.509");
             this.serverIntermediateCertificate = (X509Certificate) factory.generateCertificate(fis);
+        }
+        
+        // Load Client Signed Certificate
+        try (FileInputStream fis = new FileInputStream(clientSignedCertificatePath)) {
+            CertificateFactory factory = CertificateFactory.getInstance("X.509");
+            this.clientSignedCertificate = (X509Certificate) factory.generateCertificate(fis);
         }
         
         Security.addProvider(new BouncyCastleProvider());
@@ -108,57 +111,36 @@ public class CryptoAndCertHelper {
      */
     public boolean validateSignature(String originalString, StreamServerInitialResponse response) {
         try {
-            PublicKey serverIntermediatePublicKey = serverIntermediateCertificate.getPublicKey();
+            PublicKey clientSignedPublicKey = clientSignedCertificate.getPublicKey();
             
             logger.info("originalString "+originalString);
             logger.info("base64Signature "+response.getSignedClientId());
+            logger.info("getSignedClientIdBytes "+response.getSignedClientIdBytes());
             logger.info("pubKeyFingerprint "+response.getPubKeyFingerprint());
             
-
-            String calculatedFingerprint = getPublicKeyFingerprint(serverIntermediatePublicKey);
-            logger.info("Calculated Fingerprint Server Intermediate Public Key : " + calculatedFingerprint);
+            String calculatedFingerprint = getPublicKeyFingerprint(clientSignedPublicKey);
+            logger.info("Calculated Fingerprint Server Intermediate Public Key: " + calculatedFingerprint);
             
             this.serverIntermediatePublicKeyFingerprint = calculatedFingerprint;
                     
             if (!calculatedFingerprint.equalsIgnoreCase(response.getPubKeyFingerprint())) {
                 return false;
             }
-            /*
-            Cipher cipher = Cipher.getInstance("RSA");
-            cipher.init(Cipher.DECRYPT_MODE, serverIntermediatePublicKey);
-            byte[] decryptedMessageHash = cipher.doFinal(response.getSignedClientIdBytes().toString().getBytes(StandardCharsets.UTF_8));
             
-            byte[] messageBytes = originalString.getBytes(StandardCharsets.UTF_8);
-
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] newMessageHash = md.digest(messageBytes);
+            logger.info("response.getSignedClientIdBytes() lenght: " +response.getSignedClientIdBytes().size());
+                        
+            byte[] signatureBytes = Base64.getDecoder().decode(response.getSignedClientId());
+            logger.info("signatureBytes lenght: " +signatureBytes.length);
             
-            DigestAlgorithmIdentifierFinder hashAlgorithmFinder = new DefaultDigestAlgorithmIdentifierFinder();
-            AlgorithmIdentifier hashingAlgorithmIdentifier = hashAlgorithmFinder.find("SHA-256");
-            DigestInfo digestInfo = new DigestInfo(hashingAlgorithmIdentifier, newMessageHash);
-            byte[] hashToEncrypt = digestInfo.getEncoded();
-            
-            boolean isCorrect = Arrays.equals(decryptedMessageHash, hashToEncrypt);
-            logger.info("isCorrect "+isCorrect);
-            */
-            
-            byte[] signatureBytes = Base64.getDecoder().decode(response.getSignedClientId().getBytes(StandardCharsets.UTF_8));
-            
-            //decryptStringWithPrivateKeyRSA(response.getSignedClientId(),"/home/fintecheando/dev/fintecheando/vnext/llaves/mifos-bank-1_private.pem");
-             
-            // Create SHA-1 digest instance
-            MessageDigest md = MessageDigest.getInstance("SHA-1");
-
             // Update digest with the input string (UTF-8 encoded)
-            byte[] digest = md.digest(originalString.getBytes(StandardCharsets.UTF_8));
+            byte[] digest = originalString.getBytes(StandardCharsets.UTF_8);
             
             Signature sig = Signature.getInstance("SHA1withRSA");            
-            sig.initVerify(serverIntermediatePublicKey);
+            sig.initVerify(serverIntermediateCertificate);
             sig.update(digest);
             sig.verify(signatureBytes);
             
             logger.info("Signature verified "+sig.verify(signatureBytes));
-            
                          
             return false;
         } 

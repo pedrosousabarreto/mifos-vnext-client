@@ -135,7 +135,7 @@ public class VnextClient {
         logger.info("Initializing CryptoAndCertHelper ");
         logger.info("Client Private Key: {} ", clientPrivateKeyPath);
         logger.info("Server Intermediate Certificate: {}", serverIntermediateCertificatePath);
-        this.cryptoHelper = new CryptoAndCertHelper(clientPrivateKeyPath, serverIntermediateCertificatePath);
+        this.cryptoHelper = new CryptoAndCertHelper(clientPrivateKeyPath, serverIntermediateCertificatePath, clientCertPath);
 
         // Generar client ID único
         this.clientId = UUID.randomUUID().toString();
