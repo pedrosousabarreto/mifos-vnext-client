@@ -20,9 +20,7 @@ package org.mifos.vnext.connector.config;
 
 import com.google.protobuf.ByteString;
 import java.io.File;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.Signature;
+import java.security.*;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -31,25 +29,28 @@ import lombok.Setter;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.security.KeyFactory;
-import java.security.MessageDigest;
-import java.security.Security;
 
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.DEROctetString;
+
+import org.bouncycastle.asn1.*;
+import org.bouncycastle.asn1.util.ASN1Dump;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.DigestAlgorithmIdentifierFinder;
 import org.mifos.grpc.proto.vnext.StreamServerInitialResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 @Getter
 @Setter
@@ -128,21 +129,26 @@ public class CryptoAndCertHelper {
             }
             
             logger.info("response.getSignedClientIdBytes() lenght: " +response.getSignedClientIdBytes().size());
-                        
-            byte[] signatureBytes = Base64.getDecoder().decode(response.getSignedClientId());
-            logger.info("signatureBytes lenght: " +signatureBytes.length);
+
+            // decode base64, then encode as UTF_8 string (will have 256 lengths), then transform to single byte ISO_8859_1
+            byte[] signatureBase64DecodedBytes = Base64.getDecoder().decode(response.getSignedClientId());
+            logger.info("signatureBase64DecodedBytes length: " +signatureBase64DecodedBytes.length);
+            String signatureStr = new String(signatureBase64DecodedBytes, StandardCharsets.UTF_8);
+            byte[] signatureBytes = signatureStr.getBytes(StandardCharsets.ISO_8859_1);
+
+            logger.info("signatureBytes length: " +signatureBytes.length);
             
             // Update digest with the input string (UTF-8 encoded)
             byte[] digest = originalString.getBytes(StandardCharsets.UTF_8);
             
             Signature sig = Signature.getInstance("SHA1withRSA");            
-            sig.initVerify(serverIntermediateCertificate);
+            sig.initVerify(serverIntermediateCertificate.getPublicKey());
             sig.update(digest);
-            sig.verify(signatureBytes);
+            boolean verified = sig.verify(signatureBytes);
             
-            logger.info("Signature verified "+sig.verify(signatureBytes));
+            logger.info("Signature verified "+verified);
                          
-            return false;
+            return verified;
         } 
         catch (Exception e) {
             e.printStackTrace();

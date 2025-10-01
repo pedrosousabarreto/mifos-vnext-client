@@ -18,7 +18,9 @@
  */
 package org.mifos.vnext.connector.config;
 
+import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
+import io.netty.handler.ssl.SslContext;
 import org.mifos.grpc.proto.vnext.InteropGrpcApiGrpc;
 import org.mifos.grpc.proto.vnext.LookupParticipantRequest;
 import org.mifos.grpc.proto.vnext.LookupParticipantResponse;
@@ -93,7 +95,7 @@ public class VnextClient {
     private final String clientPrivateKeyPath;    
     private final String serverIntermediateCertificatePath;
     private final String serverRootCertificatePath;
-    private final String serverFullCertPem;
+    private final String serverTlsCertPem;
     
 
     // Constantes de timeout
@@ -109,7 +111,7 @@ public class VnextClient {
                         String clientCertPath,
                         String serverIntermediateCertificatePath, 
                         String serverRootCertificatePath, 
-                        String fullCertificate,
+                        String serverTlsCertPem,
                         boolean mainClient, 
                         String pchVnextServerDNS,
                         int pchVnextServerPort,
@@ -129,7 +131,7 @@ public class VnextClient {
         //Server certificates
         this.serverIntermediateCertificatePath = serverIntermediateCertificatePath;
         this.serverRootCertificatePath = serverRootCertificatePath;
-        this.serverFullCertPem=fullCertificate;
+        this.serverTlsCertPem =serverTlsCertPem;
         
         // Inicializar crypto helper
         logger.info("Initializing CryptoAndCertHelper ");
@@ -149,13 +151,23 @@ public class VnextClient {
         try {
 
 
-            logger.info("Creating secure gRPC channel to {}:{}", pchVnextServerDNS, pchVnextServerPort);            
+            logger.info("Creating secure gRPC channel to {}:{}", pchVnextServerDNS, pchVnextServerPort);
+
+            File trustCertCollectionFile = new File(this.serverTlsCertPem);
+            SslContext sslContext = GrpcSslContexts.forClient()
+                    .trustManager(trustCertCollectionFile)
+                    .build();
+
+
             // Crear el canal
-            this.channel = NettyChannelBuilder.forAddress(pchVnextServerDNS, pchVnextServerPort)                    
+            this.channel = NettyChannelBuilder.forAddress(pchVnextServerDNS, pchVnextServerPort)
                     .keepAliveTime(keepAliveTime, TimeUnit.MILLISECONDS)
                     .keepAliveTimeout(keepAliveTimeout, TimeUnit.MILLISECONDS)
                     .keepAliveWithoutCalls(pchVnextKeepAliveTimeWithoutCalls)
-                    .build();
+                    .sslContext(sslContext)
+                    //.usePlaintext()
+
+                   .build();
 
             logger.info("gRPC channel created successfully");
         } catch (Exception e) {

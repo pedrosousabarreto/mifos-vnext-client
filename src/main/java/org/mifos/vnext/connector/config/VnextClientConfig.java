@@ -54,8 +54,8 @@ public class VnextClientConfig {
     @Value("${pch.vnext.client.public.key}") // Nueva propiedad
     private String pchVnextClientPublicKey;
 
-    @Value("${pch.vnext.server.full.certificate}") // Nueva propiedad
-    private String pchVnextServerFullChainCombined;
+    @Value("${pch.vnext.server.tls.certificate}") // Nueva propiedad
+    private String pchVnextServerTlsCertificate;
 
     @Value("${pch.vnext.server.intermediate.certificate}") // Nueva propiedad
     private String pchVnextServerIntermediateCertificate;
@@ -101,7 +101,7 @@ public class VnextClientConfig {
                     pchVnextClientCertificate,
                     pchVnextServerIntermediateCertificate,
                     pchVnextServerRootCertificate,
-                    pchVnextServerFullChainCombined,                    
+                    pchVnextServerTlsCertificate,
                     pchVnextMainClient,
                     pchVnextServerDNS,
                     pchVnextServerPort,
